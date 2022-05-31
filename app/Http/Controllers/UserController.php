@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
+
 use App\Models\User;
 
 class UserController extends Controller
@@ -193,6 +195,40 @@ class UserController extends Controller
         return $user;
     }
 
+    public function EditSpecificUser(Request $request, $userId)
+    {
+        $user = User::where('id', $userId)->first();
+
+        if (!empty($request->password) && $request->password != $request->password_confirmation)
+        {
+            return response()->json([
+                'message' => 'Пароли не совпадает'
+            ] , 422);
+        }
+
+        $checkEmail = User::where([['id', '!=', $user->id], ['email', $request->email]])->first();
+
+        if (!empty($checkEmail))
+        {
+            return response()->json([
+                'message' => 'Пользователь с таким email уже существует'
+            ] , 422);
+        }
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->last_name = !empty($request->last_name) ? $request->last_name : '';
+        $user->birthday = !empty($request->birthday) ? $request->birthday : '';
+        $user->city = !empty($request->city) ? $request->city : '';
+        $user->phone = !empty($request->phone) ? $request->phone : '';
+        $user->role = !empty($request->role) ? $request->role : 'user';
+        $user->password = Hash::make($request->password);
+
+        $user->save();
+
+        return response()->json($user , 200);
+    }
+
     public function CreateUser(Request $request)
     {
         $request->validate([
@@ -200,21 +236,6 @@ class UserController extends Controller
             'email' => ['required', 'email', 'unique:users'],
             'password' => ['required', 'min:6', 'confirmed']
         ]);
-
-        /*
-
-        User::create([
-            'name' => $request->name,
-            'last_name' => !empty($request->lastName) ? $request->lastName : '',
-            'birthday' => !empty($request->birthday) ? $request->birthday : '',
-            'city' => !empty($request->city) ? $request->city : '',
-            'phone' => !empty($request->phone) ? $request->phone : '',
-            'role' => !empty($request->role) ? $request->role : 'user',
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-
-        */
 
         $user = new User();
 
@@ -228,7 +249,48 @@ class UserController extends Controller
         $user->password = Hash::make($request->password);
 
         $user->save();
+    }
 
+    public function GetAllUsers(Request $request)
+    {
+        $users = User::all();
         
+        if (empty($request->filter))
+        {
+            return $users;
+        }
+
+        $users = DB::table('users');
+
+        $useAdmin = $request->filter['admin'];
+        $useEducator = $request->filter['educator'];
+        $useUser = $request->filter['user'];
+        $useName = !empty($request->filter['name']);
+
+        $users = $users->where(function ($query) use ($useAdmin, $useEducator, $useUser) {
+            if ($useAdmin)
+            {
+                $query->orWhere('role', 'admin');
+            }
+
+            if ($useEducator)
+            {
+                $query->orWhere('role', 'educator');
+            }
+
+            if ($useUser)
+            {
+                $query->orWhere('role', 'user');
+            }
+        });
+
+        if ($useName)
+        {
+            $name = $request->filter['name'];
+            $users->where(function ($query) use ($name) {
+                $query->where('name', 'like', "%$name%")->orWhere('last_name', 'like', "%$name%");
+            });
+        }
+        return $users->get();
     }
 }

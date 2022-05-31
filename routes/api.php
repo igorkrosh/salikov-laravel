@@ -26,8 +26,10 @@ Route::post('/register', [UserController::class, 'Register']);
 Route::post('/login', [UserController::class, 'Login'])->name('login');
 Route::post('/logout', [UserController::class, 'Logout']);
 Route::post('/user/edit', [UserController::class, 'EditUser']);
+Route::post('/user/{userId}/edit', [UserController::class, 'EditSpecificUser']);
 Route::post('/user/create', [UserController::class, 'CreateUser']);
 
 Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'GetUserProfile']);
+Route::middleware('auth:sanctum')->post('/user/all', [UserController::class, 'GetAllUsers']);
 
 /**********************/
