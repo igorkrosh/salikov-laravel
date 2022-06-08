@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\CourseController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,3 +34,10 @@ Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'GetU
 Route::middleware('auth:sanctum')->post('/user/all', [UserController::class, 'GetAllUsers']);
 
 /**********************/
+
+
+/*** CourseController ***/
+
+Route::middleware('auth:sanctum')->post('/course/create', [CourseController::class, 'CreateCourse']);
+
+/************************/
