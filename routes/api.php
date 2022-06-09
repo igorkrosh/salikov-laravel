@@ -37,7 +37,10 @@ Route::middleware('auth:sanctum')->post('/user/all', [UserController::class, 'Ge
 
 
 /*** CourseController ***/
+Route::middleware('auth:sanctum')->get('/course/get-by-user', [CourseController::class, 'GetCoursesByUser']);
+Route::middleware('auth:sanctum')->get('/course/{courseId}/get', [CourseController::class, 'GetCourseById']);
 
 Route::middleware('auth:sanctum')->post('/course/create', [CourseController::class, 'CreateCourse']);
+Route::middleware('auth:sanctum')->post('/course/{courseId}/edit', [CourseController::class, 'EditCourse']);
 
 /************************/

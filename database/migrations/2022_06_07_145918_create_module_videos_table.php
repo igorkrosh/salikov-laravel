@@ -17,7 +17,7 @@ class CreateModuleVideosTable extends Migration
             $table->id();
             $table->integer('block_id');
             $table->integer('index');
-            $table->string('authors');
+            $table->string('authors')->default('');;
             $table->string('title');
             $table->string('link');
             $table->timestamps();

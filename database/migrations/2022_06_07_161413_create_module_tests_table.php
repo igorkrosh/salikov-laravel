@@ -17,7 +17,7 @@ class CreateModuleTestsTable extends Migration
             $table->id();
             $table->integer('block_id');
             $table->integer('index');
-            $table->string('authors');
+            $table->string('authors')->default('');
             $table->string('title');
             $table->json('test');
             $table->dateTime('deadline', $precision = 0);
