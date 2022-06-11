@@ -43,4 +43,7 @@ Route::middleware('auth:sanctum')->get('/course/{courseId}/get', [CourseControll
 Route::middleware('auth:sanctum')->post('/course/create', [CourseController::class, 'CreateCourse']);
 Route::middleware('auth:sanctum')->post('/course/{courseId}/edit', [CourseController::class, 'EditCourse']);
 
+
+Route::middleware('auth:sanctum')->delete('/course/{courseId}/delete', [CourseController::class, 'DeleteCourse']);
+
 /************************/

@@ -437,6 +437,32 @@ class CourseController extends Controller
         return $course;
     }
 
+    public function DeleteCourse(Request $request, $courseId)
+    {
+        $blocks = CourseBlock::where('course_id', $courseId)->get();
+
+        foreach ($blocks as $block)
+        {
+            ModuleStream::where('block_id', $block->id)->delete();
+            ModuleVideo::where('block_id', $block->id)->delete();
+            ModuleJob::where('block_id', $block->id)->delete();
+            ModuleTest::where('block_id', $block->id)->delete();
+        }
+
+        CourseBlock::where('course_id', $courseId)->delete();
+        Course::where('id', $courseId)->delete();
+
+        if (Storage::disk('public')->exists("images/courses/cover/$courseId.jpeg"))
+        {
+            Storage::disk('public')->delete("images/courses/cover/$courseId.jpeg");
+        }
+
+        if (Storage::disk('public')->exists("images/courses/cover/$courseId.png"))
+        {
+            Storage::disk('public')->delete("images/courses/cover/$courseId.png");
+        }
+    }
+
     private function ConvertDate($date)
     {
         $result = strtotime($date);
