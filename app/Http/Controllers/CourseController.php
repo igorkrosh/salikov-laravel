@@ -453,8 +453,17 @@ class CourseController extends Controller
         $imageBase64 = base64_decode($imageParts[1]);
         $filePath = 'images/courses/cover/'.$name.'.'.$imageType;
 
+        $linkParam = '';
+
+        if (Storage::disk('public')->exists($filePath))
+        {
+            $time = time();
+            $linkParam = "?v=$time";
+        }
+
+
         $disk = Storage::disk('public')->put($filePath, base64_decode($imageParts[1])); 
 
-        return 'storage/'.$filePath;
+        return 'storage/'.$filePath.$linkParam;
     }
 }
