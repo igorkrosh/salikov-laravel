@@ -41,7 +41,7 @@ class CourseController extends Controller
 
         if (!empty($request->image))
         {
-            $filePath = $this->LoadImage($request->image);
+            $filePath = $this->LoadImage($request->image, $course->id);
             $course->image_path = $filePath;
         }
 
@@ -289,7 +289,7 @@ class CourseController extends Controller
 
         if (!empty($request->image))
         {
-            $filePath = $this->LoadImage($request->image);
+            $filePath = $this->LoadImage($request->image, $course->id);
             $course->image_path = $filePath;
         }
 
@@ -445,13 +445,13 @@ class CourseController extends Controller
         return $result;
     }
 
-    private function LoadImage($image)
+    private function LoadImage($image, $name)
     {
         $imageParts = explode(";base64,", $image);
         $imageTypeAux = explode("image/", $imageParts[0]);
         $imageType = $imageTypeAux[1];
         $imageBase64 = base64_decode($imageParts[1]);
-        $filePath = 'images/courses/cover/'.$course->id.'.'.$imageType;
+        $filePath = 'images/courses/cover/'.$name.'.'.$imageType;
 
         $disk = Storage::disk('public')->put($filePath, base64_decode($imageParts[1])); 
 
