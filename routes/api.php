@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\WebinarController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,11 +27,14 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('/register', [UserController::class, 'Register']);
 Route::post('/login', [UserController::class, 'Login'])->name('login');
 Route::post('/logout', [UserController::class, 'Logout']);
-Route::post('/user/edit', [UserController::class, 'EditUser']);
-Route::post('/user/{userId}/edit', [UserController::class, 'EditSpecificUser']);
-Route::post('/user/create', [UserController::class, 'CreateUser']);
 
 Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'GetUserProfile']);
+Route::middleware('auth:sanctum')->get('/user/calendar', [UserController::class, 'GetCalendar']);
+
+
+Route::middleware('auth:sanctum')->post('/user/edit', [UserController::class, 'EditUser']);
+Route::middleware('auth:sanctum')->post('/user/{userId}/edit', [UserController::class, 'EditSpecificUser']);
+Route::middleware('auth:sanctum')->post('/user/create', [UserController::class, 'CreateUser']);
 Route::middleware('auth:sanctum')->post('/user/all', [UserController::class, 'GetAllUsers']);
 
 /**********************/
@@ -47,3 +51,15 @@ Route::middleware('auth:sanctum')->post('/course/{courseId}/edit', [CourseContro
 Route::middleware('auth:sanctum')->delete('/course/{courseId}/delete', [CourseController::class, 'DeleteCourse']);
 
 /************************/
+
+/*** WebinarController ***/
+
+Route::middleware('auth:sanctum')->get('/webinar/get-by-user', [WebinarController::class, 'GetWebinarsByUser']);
+Route::middleware('auth:sanctum')->get('/webinar/{webinarId}/get', [WebinarController::class, 'GetWebinarById']);
+
+Route::middleware('auth:sanctum')->post('/webinar/create', [WebinarController::class, 'CreateWebinar']);
+Route::middleware('auth:sanctum')->post('/webinar/{webinarId}/edit', [WebinarController::class, 'EditWebinar']);
+
+Route::middleware('auth:sanctum')->delete('/webinar/{webinarId}/delete', [WebinarController::class, 'DeleteWebinar']);
+
+/*************************/

@@ -9,6 +9,10 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\User;
+use App\Models\Course;
+use App\Models\CourseBlock;
+use App\Models\Webinar;
+
 
 class UserController extends Controller
 {
@@ -292,5 +296,88 @@ class UserController extends Controller
             });
         }
         return $users->get();
+    }
+
+    public function GetCalendar(Request $request)
+    {
+        $userId = Auth::user()->id;
+        $courses = Course::where('creator', $userId)->get();
+        $webinars = Webinar::where('creator', $userId)->get();
+        $dates= [];
+
+        foreach ($webinars as $webinar)
+        {
+            $dates[] = [
+                'date' => $webinar->date_start,
+                'text' => "Вебинар: \"$webinar->name\"",
+                'color' => 'yellow'
+            ];
+        }
+
+        foreach ($courses as $course)
+        {
+            $dates[] = [
+                'date' => $course->date_start,
+                'text' => "Начало курса: $course->name",
+                'color' => 'blue'
+            ];
+
+            $blocks = CourseBlock::where('course_id', $course->id)->get();
+
+            foreach ($blocks as $block)
+            {
+                $dates[] = [
+                    'date' => $block->date_start,
+                    'text' => "Начало блока: \"$block->title\"",
+                    'color' => "purple"
+                ];
+            }
+
+            $modules = $this->GetModules($course->id);
+
+            foreach($modules['stream'] as $module)
+            {
+                $dates[] = [
+                    'date' => $module->date_start,
+                    'text' => "Стрим: \"$module->title\"",
+                    'color' => 'orange'
+                ];
+            }
+
+            foreach($modules['job'] as $module)
+            {
+                $dates[] = [
+                    'date' => $module->deadline,
+                    'text' => "Срок сдачи задания \"$module->title\"",
+                    'color' => 'red'
+                ];
+
+                $dates[] = [
+                    'date' => $module->check_date,
+                    'text' => "Проверка задания \"$module->title\"",
+                    'color' => 'green'
+                ];
+            }
+
+            foreach($modules['test'] as $module)
+            {
+                $dates[] = [
+                    'date' => $module->deadline,
+                    'text' => "Срок сдачи задания \"$module->title\"",
+                    'color' => 'red'
+                ];
+
+                $dates[] = [
+                    'date' => $module->check_date,
+                    'text' => "Проверка задания \"$module->title\"",
+                    'color' => 'green'
+                ];
+            }
+
+            return $dates;
+        }
+
+
+        
     }
 }

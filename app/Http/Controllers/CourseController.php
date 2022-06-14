@@ -41,7 +41,7 @@ class CourseController extends Controller
 
         if (!empty($request->image))
         {
-            $filePath = $this->LoadImage($request->image, $course->id);
+            $filePath = $this->LoadImage($request->image, $course->id, 'images/courses/cover/');
             $course->image_path = $filePath;
         }
 
@@ -289,7 +289,7 @@ class CourseController extends Controller
 
         if (!empty($request->image))
         {
-            $filePath = $this->LoadImage($request->image, $course->id);
+            $filePath = $this->LoadImage($request->image, $course->id, 'images/courses/cover/');
             $course->image_path = $filePath;
         }
 
@@ -461,35 +461,5 @@ class CourseController extends Controller
         {
             Storage::disk('public')->delete("images/courses/cover/$courseId.png");
         }
-    }
-
-    private function ConvertDate($date)
-    {
-        $result = strtotime($date);
-        $result = date('Y-m-d',$result);
-
-        return $result;
-    }
-
-    private function LoadImage($image, $name)
-    {
-        $imageParts = explode(";base64,", $image);
-        $imageTypeAux = explode("image/", $imageParts[0]);
-        $imageType = $imageTypeAux[1];
-        $imageBase64 = base64_decode($imageParts[1]);
-        $filePath = 'images/courses/cover/'.$name.'.'.$imageType;
-
-        $linkParam = '';
-
-        if (Storage::disk('public')->exists($filePath))
-        {
-            $time = time();
-            $linkParam = "?v=$time";
-        }
-
-
-        $disk = Storage::disk('public')->put($filePath, base64_decode($imageParts[1])); 
-
-        return 'storage/'.$filePath.$linkParam;
     }
 }
