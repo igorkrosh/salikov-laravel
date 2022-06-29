@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Config;
 
 use App\Models\Course;
 use App\Models\CourseBlock;
@@ -47,6 +49,8 @@ class CourseController extends Controller
 
         $course->save();
 
+        $MIGXbloks = [];
+
         foreach ($request->blocks as $index => $block)
         {
             $newBlock = new CourseBlock();
@@ -62,8 +66,17 @@ class CourseController extends Controller
 
             $newBlock->save();
 
+            $MIGXbloks[] = [
+                'name' => $block['title'],
+                'desc' => '<ul>',
+            ];
+
+            $indexMIGX = count($MIGXbloks) - 1;
+
             foreach ($block['modules'] as $index => $module)
             {
+                
+                $MIGXbloks[$indexMIGX]['desc'] .= '<li>'.$module['title'].'</li>';
                 if ($module['type'] == 'stream')
                 {
                     $newModuleStream = new ModuleStream();
@@ -142,9 +155,22 @@ class CourseController extends Controller
                     $newModuleTest->save();
                 }
             }
+
+            $MIGXbloks[$indexMIGX]['desc'] .= '</ul>';
         }
 
-        return $course;
+        $imgUrl = url('/').'/'.$course->image_path;
+
+        $response = Http::post(config('modx.api').'/CreateCourse', [
+            'pagetitle' => $course->name,
+            'image' => $imgUrl,
+            'date' => $this->ConvertDate($course->date_start),
+            'id' => $course->id,
+            'lectors' => $course->authors,
+            'migx' => $MIGXbloks,
+        ]);
+
+        return $response;
     }
 
     public function GetCoursesByUser(Request $request)
@@ -461,5 +487,9 @@ class CourseController extends Controller
         {
             Storage::disk('public')->delete("images/courses/cover/$courseId.png");
         }
+
+        $response = Http::post(config('modx.api').'/DeleteCourse', [
+            'id' => $courseId,
+        ]);
     }
 }
