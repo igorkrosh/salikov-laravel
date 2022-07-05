@@ -14,6 +14,7 @@ use App\Models\ModuleStream;
 use App\Models\ModuleVideo;
 use App\Models\ModuleJob;
 use App\Models\ModuleTest;
+use App\Models\Progress;
 
 class Controller extends BaseController
 {
@@ -93,5 +94,17 @@ class Controller extends BaseController
 
         return $result;
 
+    }
+
+    public function GetModuleStatus($userId, $moduleId, $type)
+    {
+        $progress = Progress::where([['user_id', $userId], ['module_id', $moduleId], ['type', $type]])->first();
+
+        if (empty($progress))
+        {
+            return 'none';
+        }
+
+        return $progress->status;
     }
 }

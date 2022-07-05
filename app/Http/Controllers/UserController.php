@@ -12,7 +12,7 @@ use App\Models\User;
 use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\Webinar;
-
+use App\Models\BlockAccess;
 
 class UserController extends Controller
 {
@@ -57,9 +57,26 @@ class UserController extends Controller
     public function GetUserProfile(Request $request)
     {
         $user = Auth::user();
+        $access = BlockAccess::where('user_id', $user->id)->get()->unique('course_id');
+
+        $accessCourses = [];
+
+        foreach ($access as $item)
+        {
+            $course = Course::where('id', $item->course_id)->first();
+            $accessCourses[] = [
+                'id' => $item->course_id,
+                'image' => url('/').'/'.$course->image_path,
+                'lectors' => $course->authors,
+                'title' => $course->name,
+                'type' => 'Курс',
+                'progress' => 0,
+            ];
+        }
 
         $result = [
             'user' => [
+                'id' => $user->id,
                 'role' => $user->role,
                 'points' => $user->points,
                 'allPoints' => $user->active_points,
@@ -72,6 +89,7 @@ class UserController extends Controller
                 'email' => $user->email,
                 'avatar' => ''
             ],
+            /*
             'progress' => [
                 [
                     'image' => 'https://www.iserbia.rs/files//2018/06/tajna-oruzja-uverljivih-ljudi.jpg',
@@ -88,6 +106,8 @@ class UserController extends Controller
                     'progress' => 99
                 ]
             ],
+            */
+            'progress' => $accessCourses,
             'webinar' => [
                 [
                     'type' => 'course',

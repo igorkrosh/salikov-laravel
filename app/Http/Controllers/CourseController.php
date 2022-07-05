@@ -14,6 +14,8 @@ use App\Models\ModuleStream;
 use App\Models\ModuleVideo;
 use App\Models\ModuleJob;
 use App\Models\ModuleTest;
+use App\Models\User;
+use App\Models\BlockAccess;
 
 class CourseController extends Controller
 {
@@ -161,14 +163,19 @@ class CourseController extends Controller
 
         $imgUrl = url('/').'/'.$course->image_path;
 
-        $response = Http::post(config('modx.api').'/CreateCourse', [
-            'pagetitle' => $course->name,
-            'image' => $imgUrl,
-            'date' => $this->ConvertDate($course->date_start),
-            'id' => $course->id,
-            'lectors' => $course->authors,
-            'migx' => $MIGXbloks,
-        ]);
+        $response = 0;
+
+        if (config('modx.sync'))
+        {
+            $response = Http::post(config('modx.api').'/CreateCourse', [
+                'pagetitle' => $course->name,
+                'image' => $imgUrl,
+                'date' => $this->ConvertDate($course->date_start),
+                'id' => $course->id,
+                'lectors' => $course->authors,
+                'migx' => $MIGXbloks,
+            ]);
+        }
 
         return $response;
     }
@@ -233,6 +240,7 @@ class CourseController extends Controller
                     'title' => $module->title,
                     'link' => $module->link,
                     'date' => $module->date_start,
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'stream')
                 ];
             }
 
@@ -247,6 +255,7 @@ class CourseController extends Controller
                     'authors' => $module->authors,
                     'title' => $module->title,
                     'link' => $module->link,
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'video')
                 ];
             }
 
@@ -263,6 +272,7 @@ class CourseController extends Controller
                     'text' => $module->text,
                     'deadline' => $module->deadline,
                     'check_date' => $module->check_date,
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'job')
                 ];
             }
 
@@ -279,6 +289,7 @@ class CourseController extends Controller
                     'test' => $module->test,
                     'deadline' => $module->deadline,
                     'check_date' => $module->check_date,
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'test')
                 ];
             }
 
@@ -488,8 +499,113 @@ class CourseController extends Controller
             Storage::disk('public')->delete("images/courses/cover/$courseId.png");
         }
 
-        $response = Http::post(config('modx.api').'/DeleteCourse', [
-            'id' => $courseId,
-        ]);
+        if (config('modx.sync'))
+        {
+            $response = Http::post(config('modx.api').'/DeleteCourse', [
+                'id' => $courseId,
+            ]);
+        }
     }
+
+    public function GetCourseUsers(Request $request, $courseId)
+    {
+        $course = Course::where('id', $courseId)->first();
+        $creator = User::where('id', $course->creator)->first();
+
+        $response = [
+            'curators' => [],
+            'users' => [],
+        ];
+
+        $response['curators'][] = [
+            'image' => '',
+            'name' => $creator->name.' '.$creator->last_name,
+            'id' => $creator->id
+        ];
+
+        $access = BlockAccess::where('course_id', $courseId)->get()->unique('user_id');
+
+        foreach($access as $accessRow)
+        {
+            $user = User::where('id', $accessRow->user_id)->first();
+            $response['users'][] = [
+                'image' => '',
+                'name' => $user->name.' '.$user->last_name,
+                'id' => $user->id
+            ];
+        }
+
+        return $response;
+    }
+
+    public function AddUserAccess(Request $request)
+    {
+        //BlockAccess
+        $user = User::where('email', $request->email)->first();
+
+        foreach($request->blocks as $blockId)
+        {
+            $access = new BlockAccess();
+
+            $access->user_id = $user->id;
+            $access->block_id = $blockId;
+            $access->course_id = $request->course_id;
+
+            $access->save();
+        }
+    }
+
+    public function GetCourseBlocks(Request $request, $courseId)
+    {
+        $course = Course::where('id', $courseId)->first();
+        $blocks = CourseBlock::where('course_id', $course->id)->orderBy('index')->get();
+
+        $response = [];
+
+        foreach($blocks as $block)
+        {
+            $response[] = [
+                'title' => $block->title,
+                'id' => $block->id,
+            ];
+        }
+
+        return $response;
+    }
+
+    public function GetCourseUserAccess(Request $request, $courseId, $userId)
+    {
+        $access = BlockAccess::where([['course_id', $courseId], ['user_id', $userId]])->get();
+
+        $response = [];
+
+        foreach ($access as $item)
+        {
+            $block = CourseBlock::where('id', $item->block_id)->first();
+            $response[] = [
+                'id' => $block->id,
+                'title' => $block->title
+            ];
+        }
+
+        return $response;
+    }
+
+    public function SetCourseUserAccess(Request $request, $courseId, $userId)
+    {
+        BlockAccess::where([['course_id', $courseId], ['user_id', $userId]])->delete();
+
+        foreach($request->access as $blockId)
+        {
+            $access = new BlockAccess();
+
+            $access->user_id = $userId;
+            $access->block_id = $blockId;
+            $access->course_id = $courseId;
+
+            $access->save();
+        }
+    }
+
+
 }
