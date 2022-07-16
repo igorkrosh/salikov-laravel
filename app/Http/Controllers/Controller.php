@@ -107,4 +107,28 @@ class Controller extends BaseController
 
         return $progress->status;
     }
+
+    public function GetModuleByType($moduleId, $type)
+    {
+        switch ($type) 
+        {
+            case 'stream':
+                $result = ModuleStream::where('id', $moduleId)->first();
+                break;
+            case 'video':
+                $result = ModuleVideo::where('id', $moduleId)->first();
+                break;
+            case 'job':
+                $result = ModuleJob::where('id', $moduleId)->first();
+                break;
+            case 'test':
+                $result = ModuleTest::where('id', $moduleId)->first();
+                break;
+            default:
+                $result = null;
+                break;
+        }
+
+        return $result;
+    }
 }

@@ -26,6 +26,7 @@ class CreateUsersTable extends Migration
             $table->integer('active_points')->default(0);
             $table->integer('points')->default(0);
             $table->integer('invites')->default(0);
+            $table->string('img_path')->default('');
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();

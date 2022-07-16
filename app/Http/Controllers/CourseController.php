@@ -22,30 +22,27 @@ class CourseController extends Controller
     public function CreateCourse(Request $request)
     {
         $course = new Course();
-        
-        $request->validate([
-            'name' => ['required'],
-            'authors' => ['required'],
-            'date_start' => ['required'],
-            'duration' => ['required'],
-        ]);
+        $config = json_decode($request->input('course'));
 
-        $date_start = $request->date_start;
+        $date_start = $config->date_start;
         $date_start = strtotime($date_start);
         $date_start = date('Y-m-d',$date_start);
 
-        $course->name = $request->name;
-        $course->authors = $request->authors;
+        $course->name = $config->name;
+        $course->authors = $config->authors;
         $course->date_start = $date_start;
-        $course->duration = $request->duration;
+        $course->duration = $config->duration;
         $course->creator = Auth::user()->id;
         $course->image_path = '';
+        $course->kinescope_id = '';
 
         $course->save();
 
-        if (!empty($request->image))
+        app(KinescopeController::class)->CreateProject($course->name, $course->id);
+
+        if (!empty($config->image))
         {
-            $filePath = $this->LoadImage($request->image, $course->id, 'images/courses/cover/');
+            $filePath = $this->LoadImage($config->image, $course->id, 'images/courses/cover/');
             $course->image_path = $filePath;
         }
 
@@ -53,108 +50,133 @@ class CourseController extends Controller
 
         $MIGXbloks = [];
 
-        foreach ($request->blocks as $index => $block)
+        foreach ($config->blocks as $index => $block)
         {
             $newBlock = new CourseBlock();
 
-            $date_start = $block['date'];
+            $date_start = $block->date;
             $date_start = strtotime($date_start);
             $date_start = date('Y-m-d',$date_start);
 
             $newBlock->course_id = $course->id;
             $newBlock->index = $index;
-            $newBlock->title = $block['title'];
+            $newBlock->title = $block->title;
             $newBlock->date_start = $date_start;
 
             $newBlock->save();
 
             $MIGXbloks[] = [
-                'name' => $block['title'],
+                'name' => $block->title,
                 'desc' => '<ul>',
             ];
 
             $indexMIGX = count($MIGXbloks) - 1;
 
-            foreach ($block['modules'] as $index => $module)
+            foreach ($block->modules as $index => $module)
             {
                 
-                $MIGXbloks[$indexMIGX]['desc'] .= '<li>'.$module['title'].'</li>';
-                if ($module['type'] == 'stream')
+                $MIGXbloks[$indexMIGX]['desc'] .= '<li>'.$module->title.'</li>';
+                if ($module->type == 'stream')
                 {
                     $newModuleStream = new ModuleStream();
 
-                    $date_start = $module['date'];
+                    $date_start = $module->date;
                     $date_start = strtotime($date_start);
                     $date_start = date('Y-m-d', $date_start);
 
                     $newModuleStream->block_id = $newBlock->id;
                     $newModuleStream->index = $index;
-                    $newModuleStream->authors = $module['authors'];
-                    $newModuleStream->title = $module['title'];
-                    $newModuleStream->link = $module['link'];
+                    $newModuleStream->authors = $module->authors;
+                    $newModuleStream->title = $module->title;
+                    $newModuleStream->link = $module->link;
                     $newModuleStream->date_start = $date_start;
 
                     $newModuleStream->save();
                 }
 
-                if ($module['type'] == 'video')
+                if ($module->type == 'video')
                 {
                     $newModuleVideo = new ModuleVideo();
 
                     $newModuleVideo->block_id = $newBlock->id;
                     $newModuleVideo->index = $index;
-                    $newModuleVideo->authors = $module['authors'];
-                    $newModuleVideo->title = $module['title'];
-                    $newModuleVideo->link = $module['link'];
+                    $newModuleVideo->authors = $module->authors;
+                    $newModuleVideo->title = $module->title;
+                    $newModuleVideo->link = '';
 
                     $newModuleVideo->save();
+
+                    if (!empty($module->fileId))
+                    {
+                        app(KinescopeController::class)->LoadVideo($newModuleVideo->id, $request->file($module->fileId));
+                    }
                 }
 
-                if ($module['type'] == 'job')
+                if ($module->type == 'job')
                 {
                     $newModuleJob = new ModuleJob();
 
-                    $deadline = $module['deadline'];
+                    $deadline = $module->deadline;
                     $deadline = strtotime($deadline);
                     $deadline = date('Y-m-d', $deadline);
 
-                    $check_date = $module['check_date'];
+                    $check_date = $module->check_date;
                     $check_date = strtotime($check_date);
                     $check_date = date('Y-m-d', $check_date);
 
                     $newModuleJob->block_id = $newBlock->id;
                     $newModuleJob->index = $index;
-                    $newModuleJob->authors = $module['authors'];
-                    $newModuleJob->title = $module['title'];
-                    $newModuleJob->text = $module['text'];
+                    $newModuleJob->authors = $module->authors;
+                    $newModuleJob->title = $module->title;
+                    $newModuleJob->text = $module->text;
                     $newModuleJob->check_date = $check_date;
                     $newModuleJob->deadline = $deadline;
 
                     $newModuleJob->save();
+
+                    if (!empty($module->fileId))
+                    {
+                        $file = $request->file($module->fileId);
+
+                        $path = app('App\Http\Controllers\FileController')->StoreJobFile($file, $newModuleJob->id);
+
+                        $newModuleJob->file = $path;
+                        $newModuleJob->save();
+                    }
                 }
 
-                if ($module['type'] == 'test')
+                if ($module->type == 'test')
                 {
                     $newModuleTest = new ModuleTest();
 
-                    $deadline = $module['deadline'];
+                    $deadline = $module->deadline;
                     $deadline = strtotime($deadline);
                     $deadline = date('Y-m-d', $deadline);
 
-                    $check_date = $module['check_date'];
+                    $check_date = $module->check_date;
                     $check_date = strtotime($check_date);
                     $check_date = date('Y-m-d', $check_date);
 
                     $newModuleTest->block_id = $newBlock->id;
                     $newModuleTest->index = $index;
-                    $newModuleTest->authors = $module['authors'];
-                    $newModuleTest->title = $module['title'];
-                    $newModuleTest->test = $module['test'];
+                    $newModuleTest->authors = $module->authors;
+                    $newModuleTest->title = $module->title;
+                    $newModuleTest->test = $module->test;
                     //$newModuleTest->file = $module['file'];
                     $newModuleTest->check_date = $check_date;
                     $newModuleTest->deadline = $deadline;
 
                     $newModuleTest->save();
+
+                    if (!empty($module->fileId))
+                    {
+                        $file = $request->file($module->fileId);
+                        
+                        $path = app('App\Http\Controllers\FileController')->StoreTestFile($file, $newModuleTest->id);
+
+                        $newModuleTest->file = $path;
+                        $newModuleTest->save();
+                    }
                 }
             }
 
@@ -177,7 +199,7 @@ class CourseController extends Controller
             ]);
         }
 
-        return $response;
+        return $course;
     }
 
     public function GetCoursesByUser(Request $request)
@@ -272,6 +294,7 @@ class CourseController extends Controller
                     'text' => $module->text,
                     'deadline' => $module->deadline,
                     'check_date' => $module->check_date,
+                    'file_path' => url('/').'/'.$module->file,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'job')
                 ];
             }
@@ -289,6 +312,7 @@ class CourseController extends Controller
                     'test' => $module->test,
                     'deadline' => $module->deadline,
                     'check_date' => $module->check_date,
+                    'file_path' => url('/').'/'.$module->file,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'test')
                 ];
             }
@@ -319,126 +343,157 @@ class CourseController extends Controller
     {
         $course = Course::where('id', $courseId)->first();
 
-        $course->authors = $request->authors;
-        $course->date_start = $this->ConvertDate($request->date_start);
-        $course->duration = $request->duration;
-        $course->name = $request->name;
+        $config = json_decode($request->input('course'));
 
-        if (!empty($request->image))
+        $course->authors = $config->authors;
+        $course->date_start = $this->ConvertDate($config->date_start);
+        $course->duration = $config->duration;
+        $course->name = $config->name;
+
+        if (!empty($config->image))
         {
-            $filePath = $this->LoadImage($request->image, $course->id, 'images/courses/cover/');
+            $filePath = $this->LoadImage($config->image, $course->id, 'images/courses/cover/');
             $course->image_path = $filePath;
         }
 
         //$blocks = CourseBlock::where('course_id', $courseId)->get();
 
-        foreach ($request->blocks as $block)
+        foreach ($config->blocks as $block)
         {
-            if (empty($block['id']))
+            if (empty($block->id))
             {
                 $editBlock = new CourseBlock();
-                $editBlock->course_id = $request->id;
-
+                $editBlock->course_id = $config->id;
             }
             else 
             {
-                $editBlock = CourseBlock::where('id', $block['id'])->first();
+                $editBlock = CourseBlock::where('id', $block->id)->first();
             }
 
-            $editBlock->date_start = $this->ConvertDate($block['date']);
-            $editBlock->index = $block['index'];
-            $editBlock->title = $block['title'];
+            $editBlock->date_start = $this->ConvertDate($block->date);
+            $editBlock->index = $block->index;
+            $editBlock->title = $block->title;
 
             $editBlock->save();
 
-            foreach ($block['modules'] as $module)
+            foreach ($block->modules as $module)
             {
-                if (empty($module['authors']))
+                if (empty($module->authors))
                 {
-                    $module['authors'] = $request->authors;
+                    $module->authors = $config->authors;
                 }
-                switch ($module['type']) 
+                switch ($module->type) 
                 {
                     case 'stream':
-                        if (empty($module['id']))
+                        if (empty($module->id))
                         {
                             $moduleStream = new ModuleStream();
                         }
                         else 
                         {
-                            $moduleStream = ModuleStream::where('id', $module['id'])->first();
+                            $moduleStream = ModuleStream::where('id', $module->id)->first();
                         }
 
                         $moduleStream->block_id = $editBlock->id;
-                        $moduleStream->index = $module['index'];
-                        $moduleStream->authors = $module['authors'];
-                        $moduleStream->title = $module['title'];
-                        $moduleStream->link = $module['link'];
-                        $moduleStream->date_start = $this->ConvertDate($module['date']);
+                        $moduleStream->index = $module->index;
+                        $moduleStream->authors = $module->authors;
+                        $moduleStream->title = $module->title;
+                        $moduleStream->link = $module->link;
+                        $moduleStream->date_start = $this->ConvertDate($module->date);
 
                         $moduleStream->save();
 
                         break;
                     case 'video':
-                        if (empty($module['id']))
+                        if (empty($module->id))
                         {
                             $moduleVideo = new ModuleVideo();
                         }
                         else 
                         {
-                            $moduleVideo = ModuleVideo::where('id', $module['id'])->first();
+                            $moduleVideo = ModuleVideo::where('id', $module->id)->first();
                         }
 
                         $moduleVideo->block_id = $editBlock->id;
-                        $moduleVideo->index = $module['index'];
-                        $moduleVideo->authors = $module['authors'];
-                        $moduleVideo->title = $module['title'];
-                        $moduleVideo->link = $module['link'];
+                        $moduleVideo->index = $module->index;
+                        $moduleVideo->authors = $module->authors;
+                        $moduleVideo->title = $module->title;
+                        $moduleVideo->link = $module->link;
 
                         $moduleVideo->save();
+
+                        if (!empty($module->fileId))
+                        {
+                            app(KinescopeController::class)->LoadVideo($moduleVideo->id, $request->file($module->fileId));
+                        }
                         
                         break;
                     case 'job':
-                        if (empty($module['id']))
+                        if (empty($module->id))
                         {
                             $moduleJob = new ModuleJob();
                         }
                         else 
                         {
-                            $moduleJob = ModuleJob::where('id', $module['id'])->first();
+                            $moduleJob = ModuleJob::where('id', $module->id)->first();
                         }
 
                         $moduleJob->block_id = $editBlock->id;
-                        $moduleJob->index = $module['index'];
-                        $moduleJob->authors = $module['authors'];
-                        $moduleJob->title = $module['title'];
-                        $moduleJob->text = $module['text'];
-                        $moduleJob->check_date = $this->ConvertDate($module['check_date']);
-                        $moduleJob->deadline = $this->ConvertDate($module['deadline']);
+                        $moduleJob->index = $module->index;
+                        $moduleJob->authors = $module->authors;
+                        $moduleJob->title = $module->title;
+                        $moduleJob->text = $module->text;
+                        $moduleJob->check_date = $this->ConvertDate($module->check_date);
+                        $moduleJob->deadline = $this->ConvertDate($module->deadline);
 
                         $moduleJob->save();
 
+                        if (!empty($module->fileId))
+                        {
+                            $file = $request->file($module->fileId);
+                            $path = app('App\Http\Controllers\FileController')->StoreJobFile($file, $moduleJob->id);
+
+                            $moduleJob->file = $path;
+                            $moduleJob->save();
+                        }
+
+
+                        if (!empty($file))
+                        {
+                            
+                        }
+
                         break;
                     case 'test':
-                        if (empty($module['id']))
+                        if (empty($module->id))
                         {
                             $moduleTest = new ModuleTest();
                         }
                         else 
                         {
-                            $moduleTest = ModuleTest::where('id', $module['id'])->first();
+                            $moduleTest = ModuleTest::where('id', $module->id)->first();
                         }
 
                         $moduleTest->block_id = $editBlock->id;
-                        $moduleTest->index = $module['index'];
-                        $moduleTest->authors = $module['authors'];
-                        $moduleTest->title = $module['title'];
-                        $moduleTest->test = $module['test'];
+                        $moduleTest->index = $module->index;
+                        $moduleTest->authors = $module->authors;
+                        $moduleTest->title = $module->title;
+                        $moduleTest->test = $module->test;
                         //$moduleTest->file = $module['file'];
-                        $moduleTest->check_date = $this->ConvertDate($module['check_date']);
-                        $moduleTest->deadline = $this->ConvertDate($module['deadline']);
+                        $moduleTest->check_date = $this->ConvertDate($module->check_date);
+                        $moduleTest->deadline = $this->ConvertDate($module->deadline);
 
                         $moduleTest->save();
+
+                        if (!empty($module->fileId))
+                        {
+                            $file = $request->file($module->fileId);
+                            
+                            $path = app('App\Http\Controllers\FileController')->StoreTestFile($file, $moduleTest->id);
+
+                            $moduleTest->file = $path;
+                            $moduleTest->save();
+                        }
                         
                         break;
                     default:
@@ -451,22 +506,22 @@ class CourseController extends Controller
 
         $course->save();
 
-        foreach ($request->deleted['stream'] as $id)
+        foreach ($config->deleted->stream as $id)
         {
             ModuleStream::where('id', $id)->delete();
         }
 
-        foreach ($request->deleted['video'] as $id)
+        foreach ($config->deleted->video as $id)
         {
             ModuleVideo::where('id', $id)->delete();
         }
 
-        foreach ($request->deleted['job'] as $id)
+        foreach ($config->deleted->job as $id)
         {
             ModuleJob::where('id', $id)->delete();
         }
 
-        foreach ($request->deleted['test'] as $id)
+        foreach ($config->deleted->test as $id)
         {
             ModuleTest::where('id', $id)->delete();
         }
@@ -518,7 +573,7 @@ class CourseController extends Controller
         ];
 
         $response['curators'][] = [
-            'image' => '',
+            'image' => empty($creator->img_path) ? '' : url('/').'/'.$creator->img_path,
             'name' => $creator->name.' '.$creator->last_name,
             'id' => $creator->id
         ];
@@ -529,7 +584,7 @@ class CourseController extends Controller
         {
             $user = User::where('id', $accessRow->user_id)->first();
             $response['users'][] = [
-                'image' => '',
+                'image' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path,
                 'name' => $user->name.' '.$user->last_name,
                 'id' => $user->id
             ];
@@ -607,5 +662,22 @@ class CourseController extends Controller
         }
     }
 
+    public function GetCourseAll(Request $request)
+    {
+        $result = [];
 
+        foreach(Course::get() as $course)
+        {
+            $result[] = [
+                'date' => $course->date_start,
+                'duration' => $course->duration,
+                'title' => $course->name,
+                'lectors' => $course->authors,
+                'type' => 'Курс',
+                'image' => url('/').'/'.$course->image_path,
+            ];
+        }
+
+        return $result;
+    }
 }

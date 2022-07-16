@@ -23,6 +23,13 @@ class UserSeeder extends Seeder
         ]);
 
         DB::table('users')->insert([
+            'name' => 'superuser',
+            'email' => 'superuser'.'@superuser.com',
+            'password' => Hash::make('9056683492'),
+            'role' => 'admin'
+        ]);
+
+        DB::table('users')->insert([
             'name' => 'moderator',
             'email' => 'moderator'.'@moderator.com',
             'password' => Hash::make('password'),

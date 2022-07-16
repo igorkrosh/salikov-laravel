@@ -13,6 +13,12 @@ use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\Webinar;
 use App\Models\BlockAccess;
+use App\Models\ModuleStream;
+use App\Models\ModuleVideo;
+use App\Models\ModuleJob;
+use App\Models\ModuleTest;
+use App\Models\Task;
+use App\Models\Notification;
 
 class UserController extends Controller
 {
@@ -60,6 +66,8 @@ class UserController extends Controller
         $access = BlockAccess::where('user_id', $user->id)->get()->unique('course_id');
 
         $accessCourses = [];
+        $webinars = [];
+        $journal = [];
 
         foreach ($access as $item)
         {
@@ -71,6 +79,55 @@ class UserController extends Controller
                 'title' => $course->name,
                 'type' => 'Курс',
                 'progress' => 0,
+            ];
+
+            foreach ($this->GetModules($item->course_id)['stream'] as $stream)
+            {
+                $webinars[] = [
+                    'type' => 'stream',
+                    'title' => $stream->title,
+                    'date' => $stream->date_start,
+                    'lectors' => $stream->authors,
+                ];
+            }
+
+            foreach ($this->GetModules($item->course_id)['job'] as $job)
+            {
+                $journal[] = [
+                    'type' => '',
+                    'course' => $course->name,
+                    'course_id' => $course->id,
+                    'module' => $job->title, 
+                    'date' => $job->deadline,
+                    'task_id' => $job->id,
+                ];
+            }
+        }
+
+        foreach (Webinar::get() as $webinar)
+        {
+            $webinars[] = [
+                'type' => 'webinar',
+                'title' => $webinar->name,
+                'date' => $webinar->date_start,
+                'lectors' => $webinar->authors,
+            ];
+        }
+
+        usort($webinars, function($a, $b){
+            return $a['date'] <=> $b['date'];
+        });
+
+        $results = [];
+
+        foreach (Task::where('user_id', $user->id)->get() as $task)
+        {
+            $module = $this->GetModuleByType($task->module_id, $task->type);
+            $results[] = [
+                'type' => $task->score,
+                'title' => $module->title,
+                'lectors' => $module->authors,
+                'date' => $module->date_check
             ];
         }
 
@@ -87,89 +144,12 @@ class UserController extends Controller
                 'city' => $user->city,
                 'phone' => $user->phone,
                 'email' => $user->email,
-                'avatar' => ''
+                'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path
             ],
-            /*
-            'progress' => [
-                [
-                    'image' => 'https://www.iserbia.rs/files//2018/06/tajna-oruzja-uverljivih-ljudi.jpg',
-                    'title' => 'Охрана исключительных прав IT-компаний: программное обеспечение и товарные знаки',
-                    'lectors' => 'Иванов А.А.',
-                    'type' => 'Курс',
-                    'progress' => 50
-                ],
-                [
-                    'image' => 'https://www.iserbia.rs/files//2018/06/tajna-oruzja-uverljivih-ljudi.jpg',
-                    'title' => 'Охрана исключительных прав IT-компаний: программное обеспечение и товарные знаки',
-                    'lectors' => 'Иванов А.А.',
-                    'type' => 'Курс',
-                    'progress' => 99
-                ]
-            ],
-            */
             'progress' => $accessCourses,
-            'webinar' => [
-                [
-                    'type' => 'course',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'date' => '20.04.2022 16:00',
-                    'lectors' => 'Саликов И.А.',
-                    'webinarType' => 'Вебинар в рамках курса'
-                ],
-                [
-                    'type' => 'free',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'date' => '20.04.2022 16:00',
-                    'lectors' => 'Саликов И.А.',
-                    'webinarType' => 'Вебинар в рамках курса'
-                ]
-            ],
-            'journal' => [
-                [
-                    'type' => '',
-                    'title' => 'Задание по курсу: Обращение взыскания на интеллектуальную собственность',
-                    'text' => 'Вычислите квадратный корень...',
-                    'date' => '20.04.2022'
-                ],
-                [
-                    'type' => '',
-                    'title' => 'Задание по курсу: Обращение взыскания на интеллектуальную собственность',
-                    'text' => 'Вычислите квадратный корень...',
-                    'date' => '20.04.2022'
-                ]
-            ],
-            'results' => [
-                [
-                    'type' => 'one',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'lectors' => 'Иванов И.И',
-                    'date' => '20.04.2022'
-                ],
-                [
-                    'type' => 'two',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'lectors' => 'Иванов И.И',
-                    'date' => '20.04.2022'
-                ],
-                [
-                    'type' => 'three',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'lectors' => 'Иванов И.И',
-                    'date' => '20.04.2022'
-                ],
-                [
-                    'type' => 'four',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'lectors' => 'Иванов И.И',
-                    'date' => '20.04.2022'
-                ],
-                [
-                    'type' => 'five',
-                    'title' => 'Обращение взыскания на интеллектуальную собственность: тренды',
-                    'lectors' => 'Иванов И.И',
-                    'date' => '20.04.2022'
-                ]
-            ],
+            'webinar' => $webinars,
+            'results' => $results,
+            'journal' => $journal,
             'achievements' => [
                 [
                     'image' => 'https://salikov-law-practice-layout.vercel.app/assets/images/icons/achievements/2.png',
@@ -396,8 +376,10 @@ class UserController extends Controller
 
             return $dates;
         }
+    }
 
-
-        
+    public function GetUserNotifications(Request $request)
+    {
+        return Notification::where('user_id', Auth::user()->id)->get();
     }
 }

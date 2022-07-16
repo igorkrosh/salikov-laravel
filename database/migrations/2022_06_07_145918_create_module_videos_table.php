@@ -17,9 +17,10 @@ class CreateModuleVideosTable extends Migration
             $table->id();
             $table->integer('block_id');
             $table->integer('index');
-            $table->string('authors')->default('');;
+            $table->string('authors')->default('');
             $table->string('title');
-            $table->string('link');
+            $table->string('link')->default('');
+            $table->string('kinescope_id')->default('');
             $table->timestamps();
         });
     }

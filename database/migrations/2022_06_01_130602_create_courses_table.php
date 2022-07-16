@@ -21,6 +21,7 @@ class CreateCoursesTable extends Migration
             $table->string('duration');
             $table->string('creator');
             $table->string('image_path');
+            $table->string('kinescope_id');
             $table->timestamps();
         });
     }
