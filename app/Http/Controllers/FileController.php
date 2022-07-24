@@ -83,6 +83,14 @@ class FileController extends Controller
         return 'storage/'.$path.$file->getClientOriginalName();
     }
 
+    public function StoreTicketFile($file, $ticketId)
+    {
+        $path = 'files/ticket/'.$ticketId.'/';
+        Storage::disk('public')->putFileAs($path, $file, $file->getClientOriginalName());
+
+        return 'storage/'.$path.$file->getClientOriginalName();
+    }
+
     private function StoreImage($name, $image, $path, $fit)
     {
         $filename = $name.'.'.$image->extension();

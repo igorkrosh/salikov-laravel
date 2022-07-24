@@ -9,6 +9,9 @@ use App\Http\Controllers\WebinarController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\TicketController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\TinkoffController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,6 +23,8 @@ use App\Http\Controllers\NotificationController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return Auth::user();
@@ -34,6 +39,8 @@ Route::post('/logout', [UserController::class, 'Logout']);
 Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'GetUserProfile']);
 Route::middleware('auth:sanctum')->get('/user/calendar', [UserController::class, 'GetCalendar']);
 Route::middleware('auth:sanctum')->get('/user/notifications', [UserController::class, 'GetUserNotifications']);
+Route::middleware('auth:sanctum')->get('/user/progress', [UserController::class, 'GetUserProgress']);
+Route::middleware('auth:sanctum')->get('/user/{userId}/profile', [UserController::class, 'GetProfileByUserId']);
 
 
 Route::middleware('auth:sanctum')->post('/user/edit', [UserController::class, 'EditUser']);
@@ -47,10 +54,12 @@ Route::middleware('auth:sanctum')->post('/user/all', [UserController::class, 'Ge
 /*** CourseController ***/
 Route::middleware('auth:sanctum')->get('/course/get-by-user', [CourseController::class, 'GetCoursesByUser']);
 Route::middleware('auth:sanctum')->get('/course/{courseId}/get', [CourseController::class, 'GetCourseById']);
+Route::middleware('auth:sanctum')->get('/course/{courseId}/get/all', [CourseController::class, 'GetCourse']);
 Route::middleware('auth:sanctum')->get('/course/{courseId}/users', [CourseController::class, 'GetCourseUsers']);
 Route::middleware('auth:sanctum')->get('/course/{courseId}/blocks', [CourseController::class, 'GetCourseBlocks']);
 Route::middleware('auth:sanctum')->get('/course/{courseId}/user/{userId}/access', [CourseController::class, 'GetCourseUserAccess']);
 Route::middleware('auth:sanctum')->get('/course/all', [CourseController::class, 'GetCourseAll']);
+Route::middleware('auth:sanctum')->get('/course/recomendations', [CourseController::class, 'GetRecomendations']);
 
 Route::middleware('auth:sanctum')->post('/course/create', [CourseController::class, 'CreateCourse']);
 Route::middleware('auth:sanctum')->post('/course/{courseId}/edit', [CourseController::class, 'EditCourse']);
@@ -104,7 +113,39 @@ Route::middleware('auth:sanctum')->post('/file/webinar/{webinarId}/cover', [File
 
 Route::middleware('auth:sanctum')->get('/notification/get', [NotificationController::class, 'NotificationList']);
 
+Route::middleware('auth:sanctum')->post('/notification/test', [NotificationController::class, 'NotificationTest']);
+
 Route::middleware('auth:sanctum')->delete('/notification/{notificationId}/delete', [NotificationController::class, 'DeleteNotification']);
 Route::middleware('auth:sanctum')->delete('/notification/delete/all', [NotificationController::class, 'DeleteAllNotification']);
 
 /******************************/
+
+/*** TicketController ***/
+Route::middleware('auth:sanctum')->get('/ticket/get', [TicketController::class, 'GetUserTickets']);
+Route::middleware('auth:sanctum')->get('/ticket/all', [TicketController::class, 'GetTicketsList']);
+Route::middleware('auth:sanctum')->get('/ticket/{ticketId}/chat', [TicketController::class, 'GetTicketChat']);
+
+Route::middleware('auth:sanctum')->post('/ticket/create', [TicketController::class, 'CreateTicket']);
+Route::middleware('auth:sanctum')->post('/ticket/{ticketId}/chat/message', [TicketController::class, 'AddMessageToChat']);
+
+/************************/
+
+/*** ChatController ***/
+
+Route::middleware('auth:sanctum')->get('/chat/{type}/{streamId}/message/get', [ChatController::class, 'GetChatMessages']);
+
+Route::middleware('auth:sanctum')->post('/chat/{type}/{streamId}/message/send', [ChatController::class, 'SendMessage']);
+
+Route::middleware('auth:sanctum')->delete('/chat/{type}/{streamId}/message/{messageId}', [ChatController::class, 'DeleteMessage']);
+
+/**********************/
+
+/*** TinkoffController ***/
+Route::middleware('auth:sanctum')->get('/buy/course/{courseId}/access/{access}/days/{days}', [TinkoffController::class, 'BuyCourse']);
+
+Route::middleware('auth:sanctum')->post('/buy/course/{courseId}', [TinkoffController::class, 'BuyCourse']);
+Route::post('/buy/order/notification', [TinkoffController::class, 'PaymentNotification']);
+Route::post('/buy/credit/{userId}/notification', [TinkoffController::class, 'CreditNotification']);
+
+/*************************/
+

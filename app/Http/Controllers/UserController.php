@@ -19,6 +19,7 @@ use App\Models\ModuleJob;
 use App\Models\ModuleTest;
 use App\Models\Task;
 use App\Models\Notification;
+use App\Models\Progress;
 
 class UserController extends Controller
 {
@@ -65,25 +66,18 @@ class UserController extends Controller
         $user = Auth::user();
         $access = BlockAccess::where('user_id', $user->id)->get()->unique('course_id');
 
-        $accessCourses = [];
         $webinars = [];
         $journal = [];
 
         foreach ($access as $item)
         {
             $course = Course::where('id', $item->course_id)->first();
-            $accessCourses[] = [
-                'id' => $item->course_id,
-                'image' => url('/').'/'.$course->image_path,
-                'lectors' => $course->authors,
-                'title' => $course->name,
-                'type' => 'Курс',
-                'progress' => 0,
-            ];
 
             foreach ($this->GetModules($item->course_id)['stream'] as $stream)
             {
                 $webinars[] = [
+                    'id' => $stream->id,
+                    'course_id' => $stream->id,
                     'type' => 'stream',
                     'title' => $stream->title,
                     'date' => $stream->date_start,
@@ -107,10 +101,12 @@ class UserController extends Controller
         foreach (Webinar::get() as $webinar)
         {
             $webinars[] = [
+                'id' => $webinar->id,
                 'type' => 'webinar',
                 'title' => $webinar->name,
                 'date' => $webinar->date_start,
                 'lectors' => $webinar->authors,
+                'image' => url('/').'/'.$webinar->image_path,
             ];
         }
 
@@ -146,7 +142,6 @@ class UserController extends Controller
                 'email' => $user->email,
                 'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path
             ],
-            'progress' => $accessCourses,
             'webinar' => $webinars,
             'results' => $results,
             'journal' => $journal,
@@ -160,22 +155,6 @@ class UserController extends Controller
                     'image' => 'https://salikov-law-practice-layout.vercel.app/assets/images/icons/achievements/3.png',
                     'title' => 'Человек паук',
                     'text' => 'Прохождение нескольких курсов одновременно'
-                ]
-            ],
-            'done' => [
-                [
-                    'image' => 'https://www.iserbia.rs/files//2018/06/tajna-oruzja-uverljivih-ljudi.jpg',
-                    'title' => 'Охрана исключительных прав IT-компаний: программное обеспечение и товарные знаки',
-                    'lectors' => 'Иванов А.А.',
-                    'type' => 'Курс',
-                    'progress' => 100
-                ],
-                [
-                    'image' => 'https://www.iserbia.rs/files//2018/06/tajna-oruzja-uverljivih-ljudi.jpg',
-                    'title' => 'Охрана исключительных прав IT-компаний: программное обеспечение и товарные знаки 2',
-                    'lectors' => 'Иванов А.А.',
-                    'type' => 'Курс',
-                    'progress' => 100
                 ]
             ]
         ];
@@ -303,7 +282,16 @@ class UserController extends Controller
         $userId = Auth::user()->id;
         $courses = Course::where('creator', $userId)->get();
         $webinars = Webinar::where('creator', $userId)->get();
-        $dates= [];
+        $access = BlockAccess::where('user_id', $userId)->get()->unique('course_id');
+
+        foreach ($access as $course)
+        {
+            $course = Course::where('id', $course->course_id)->first();
+
+            $courses[] = $course;
+        }
+
+        $dates = [];
 
         foreach ($webinars as $webinar)
         {
@@ -381,5 +369,90 @@ class UserController extends Controller
     public function GetUserNotifications(Request $request)
     {
         return Notification::where('user_id', Auth::user()->id)->get();
+    }
+
+    public function GetUserProgress(Request $request)
+    {
+        $user = Auth::user();
+        $access = BlockAccess::where('user_id', $user->id)->get()->unique('course_id');
+
+        $response = [
+            'done' => [],
+            'progress' => [],
+            'all' => [],
+        ];
+
+        foreach ($access as $item)
+        {
+            $course = Course::where('id', $item->course_id)->first();
+            $modules = $this->GetModules($course->id);
+
+            $count = count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']);
+            $done = 0;
+
+            $moduleTypes = ['stream', 'video', 'job', 'test'];
+
+            foreach ($moduleTypes as $key)
+            {
+                foreach ($modules[$key] as $module)
+                {
+                    $progress = Progress::where([['module_id', $module->id], ['type', $key]])->first();
+
+                    if (empty($progress))
+                    {
+                        continue;
+                    }
+
+                    if ($progress->status == 'done')
+                    {
+                        $done++;
+                    }
+                }
+            }
+
+            $progress = round(($done / $count) * 100);
+
+            $data = [
+                'id' => $item->course_id,
+                'date' => $course->created_at,
+                'duration' => $course->duration,
+                'image' => url('/').'/'.$course->image_path,
+                'lectors' => $course->authors,
+                'title' => $course->name,
+                'type' => 'Курс',
+                'progress' => $progress,
+            ];
+
+            if ($progress == 100)
+            {
+                $response['done'][] = $data;
+            }
+            else 
+            {
+                $response['progress'][] = $data;
+            }
+        }
+
+        return $response;
+    }
+
+    public function GetProfileByUserId(Request $request, $userId)
+    {
+        $user = User::where('id', $userId)->first();
+
+        return [
+            'id' => $user->id,
+            'role' => $user->role,
+            'points' => $user->points,
+            'allPoints' => $user->active_points,
+            'invites' => $user->invites,
+            'name' => $user->name,
+            'lastName' => $user->last_name,
+            'birthday' => $user->birthday,
+            'city' => $user->city,
+            'phone' => $user->phone,
+            'email' => $user->email,
+            'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path
+        ];
     }
 }

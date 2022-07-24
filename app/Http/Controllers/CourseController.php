@@ -25,8 +25,7 @@ class CourseController extends Controller
         $config = json_decode($request->input('course'));
 
         $date_start = $config->date_start;
-        $date_start = strtotime($date_start);
-        $date_start = date('Y-m-d',$date_start);
+        $date_start = $this->ConvertDate($config->date_start);
 
         $course->name = $config->name;
         $course->authors = $config->authors;
@@ -35,6 +34,7 @@ class CourseController extends Controller
         $course->creator = Auth::user()->id;
         $course->image_path = '';
         $course->kinescope_id = '';
+        $course->hours = $config->hours;
 
         $course->save();
 
@@ -223,6 +223,122 @@ class CourseController extends Controller
         return $result;
     }
 
+    public function GetCourse(Request $request, $courseId)
+    {
+        $course = Course::where('id', $courseId)->first();
+
+        if (empty($course))
+        {
+            return response()->json([
+                'message' => 'Курс не найден'
+            ] , 422);
+        }
+
+        $modules = $this->GetModules($courseId);
+        
+        $result = [
+            'id' => $course->id,
+            'name' => $course->name,
+            'authors' => $course->authors,
+            'date_start' => $course->date_start,
+            'duration' => $course->duration,
+            'image' => url('/').'/'.$course->image_path,
+            'hours' => $course->hours,
+            'blocks' => [],
+            'lessons' => count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']),
+        ];
+
+        $blocks = CourseBlock::where('course_id', $course->id)->orderBy('index')->get();
+
+        foreach ($blocks as $block)
+        {
+            $modules = [];
+
+            $modulesStream = ModuleStream::where('block_id', $block->id)->get();
+
+            foreach ($modulesStream as $module)
+            {
+                $modules[] = [
+                    'id' => $module->id,
+                    'date' => $module->date_start,
+                    'title' => $module->title,
+                    'educator' => $module->authors,
+                    'type' => 'stream',
+                    'index' => $module->index,
+                ];
+            }
+
+            $modulesVideo = ModuleVideo::where('block_id', $block->id)->get();
+
+            foreach ($modulesVideo as $module)
+            {
+                $modules[] = [
+                    'id' => $module->id,
+                    'date' => '',
+                    'type' => 'video',
+                    'index' => $module->index,
+                    'educator' => $module->authors,
+                    'title' => $module->title,
+                    'link' => $module->link,
+                ];
+            }
+
+            $modulesJob = ModuleJob::where('block_id', $block->id)->get();
+
+            foreach ($modulesJob as $module)
+            {
+                $modules[] = [
+                    'id' => $module->id,
+                    'type' => 'job',
+                    'index' => $module->index,
+                    'educator' => $module->authors,
+                    'title' => $module->title,
+                    'date' => $module->deadline,
+                ];
+            }
+
+            $modulesTest = ModuleTest::where('block_id', $block->id)->get();
+
+            foreach ($modulesTest as $module)
+            {
+                $modules[] = [
+                    'id' => $module->id,
+                    'type' => 'test',
+                    'index' => $module->index,
+                    'educator' => $module->authors,
+                    'title' => $module->title,
+                    'date' => $module->deadline,
+                ];
+            }
+
+            usort($modules, function($a, $b){
+                return $a['index'] <=> $b['index'];
+            });
+
+            $result['blocks'][] = [
+                'id' => $block->id,
+                'title' => $block->title,
+                'date' => $block->date_start,
+                'index' => $block->index,
+                'modules' => $modules,
+            ];
+
+        }
+
+        usort($result['blocks'], function($a, $b){
+            return $a['index'] <=> $b['index'];
+        });
+
+        $response = Http::withOptions([
+            'verify' => false,
+        ])->get(config('modx.api')."/GetCourseConfig?courseId=$courseId");
+
+        $result['modx'] = json_decode($response->body(), true);
+
+        return $result;
+
+    }
+
     public function GetCourseById(Request $request, $courseId)
     {
         $course = Course::where('id', $courseId)->first();
@@ -233,6 +349,9 @@ class CourseController extends Controller
                 'message' => 'Курс не найден'
             ] , 422);
         }
+
+        $modules = $this->GetModules($courseId);
+        $blockAccess = BlockAccess::where([['course_id', $course->id], ['user_id', Auth::user()->id]])->first();
         
         $result = [
             'id' => $course->id,
@@ -241,7 +360,10 @@ class CourseController extends Controller
             'date_start' => $course->date_start,
             'duration' => $course->duration,
             'image' => url('/').'/'.$course->image_path,
-            'blocks' => []
+            'hours' => $course->hours,
+            'blocks' => [],
+            'lessons' => count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']),
+            'buy_at' => empty($blockAccess) ? '' : $blockAccess->created_at
         ];
 
         $blocks = CourseBlock::where('course_id', $course->id)->orderBy('index')->get();
@@ -262,7 +384,8 @@ class CourseController extends Controller
                     'title' => $module->title,
                     'link' => $module->link,
                     'date' => $module->date_start,
-                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'stream')
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'stream'),
+                    'access' => $this->IsStart($module->date_start)
                 ];
             }
 
@@ -277,7 +400,8 @@ class CourseController extends Controller
                     'authors' => $module->authors,
                     'title' => $module->title,
                     'link' => $module->link,
-                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'video')
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'video'),
+                    'access' => $this->IsStart($module->date_start)
                 ];
             }
 
@@ -295,7 +419,8 @@ class CourseController extends Controller
                     'deadline' => $module->deadline,
                     'check_date' => $module->check_date,
                     'file_path' => url('/').'/'.$module->file,
-                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'job')
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'job'),
+                    'access' => true
                 ];
             }
 
@@ -313,7 +438,8 @@ class CourseController extends Controller
                     'deadline' => $module->deadline,
                     'check_date' => $module->check_date,
                     'file_path' => url('/').'/'.$module->file,
-                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'test')
+                    'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'test'),
+                    'access' => true
                 ];
             }
 
@@ -321,12 +447,15 @@ class CourseController extends Controller
                 return $a['index'] <=> $b['index'];
             });
 
+            $access = !empty(BlockAccess::where([['user_id', Auth::user()->id], ['block_id', $block->id], ['course_id', $course->id]])->first());
+
             $result['blocks'][] = [
                 'id' => $block->id,
                 'title' => $block->title,
                 'date' => $block->date_start,
                 'index' => $block->index,
                 'modules' => $modules,
+                'access' => $access
             ];
 
         }
@@ -679,5 +808,25 @@ class CourseController extends Controller
         }
 
         return $result;
+    }
+
+    public function GetRecomendations(Request $request)
+    {
+        $courses = Course::latest()->take(6)->get();
+        $response = [];
+
+        foreach ($courses as $course)
+        {
+            $response[] = [
+                'date' => $course->created_at,
+                'duration' => $course->duration,
+                'title' => $course->name,
+                'lectors' => $course->authors,
+                'type' => 'Курс',
+                'image' => url('/').'/'.$course->image_path
+            ];
+        }
+
+        return $response;
     }
 }

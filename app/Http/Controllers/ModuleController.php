@@ -104,8 +104,15 @@ class ModuleController extends Controller
             $task->course_id = CourseBlock::where('id', $module->block_id)->first()->course_id;
         }
 
-        $task->task = $request->task;
+        $task->task = $request->input('text');
         $task->save();
+
+        if (!empty($request->file('file')))
+        {
+            $path = app('App\Http\Controllers\FileController')->StoreJobFile($request->file('file'), $moduleId);
+            $task->file = $path;
+            $task->save();
+        }
 
         $request->replace(['status' => 'check']);
 
@@ -167,7 +174,7 @@ class ModuleController extends Controller
         $testResult->incorrect = $incorrect;
         $testResult->save();
 
-        if ($testResult->correct > $testResult->incorrect)
+        if ($testResult->incorrect == 0)
         {
             $request->replace(['status' => 'done']);
         }
@@ -218,7 +225,7 @@ class ModuleController extends Controller
                     'module_id' => $module->id,
                     'task_id' => $task->id,
                     'score' => $task->score,
-                    'user' => $student->name.' '.$student->last_name
+                    'user' => $student->name.' '.$student->last_name,
                 ];
             }
         }
@@ -239,7 +246,9 @@ class ModuleController extends Controller
             'comment' => $task->comment,
             'score' => $task->score,
             'task_id' => $task->id,
-            'module_id' => $module->id
+            'module_id' => $module->id,
+            'file' => empty($task->file) ? '' : url('/').'/'.$task->file,
+            'user_id' => $task->user_id
         ];
 
         return $result;
@@ -249,7 +258,7 @@ class ModuleController extends Controller
     {
         $task = Task::where('id', $taskId)->first();
 
-        $task->comment = $request->comment;
+        $task->comment = empty($request->comment) ? '' : $request->comment;
         $task->score = $request->score;
 
         $task->save();

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 
 use App\Models\Notification;
 
+use App\Events\ClientNotification;
+
 class NotificationController extends Controller
 {
     public function NotificationList(Request $request)
@@ -23,6 +25,8 @@ class NotificationController extends Controller
         $notification->text = $text;
 
         $notification->save();
+
+        broadcast(new ClientNotification($notification->user_id, $notification->title, $notification->text));
     }
 
     public function DeleteNotification(Request $request, $notificationId)
@@ -33,5 +37,10 @@ class NotificationController extends Controller
     public function DeleteAllNotification(Request $request)
     {
         return Notification::where([['user_id', Auth::user()->id]])->delete();
+    }
+
+    public function NotificationTest(Request $request)
+    {
+        broadcast(new ClientNotification(Auth::user()->id, 'title', 'text'));
     }
 }

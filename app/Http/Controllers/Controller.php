@@ -8,6 +8,9 @@ use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 
+use DateTime;
+use DateTimeZone;
+
 use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\ModuleStream;
@@ -45,9 +48,19 @@ class Controller extends BaseController
     public function ConvertDate($date)
     {
         $result = strtotime($date);
-        $result = date('Y-m-d',$result);
+        $dt = new DateTime();
+        $dt->setTimezone(new DateTimeZone('Europe/Moscow'));
+        $dt->setTimestamp($result);
+        $result = date('Y-m-d H:i:s', $result);
 
-        return $result;
+        return $dt->format('Y-m-d H:i:s');
+    }
+
+    public function IsStart($date)
+    {
+        $timeStart = strtotime($date);
+
+        return !($timeStart > time());
     }
 
     public function GetModules($courseId)
@@ -130,5 +143,13 @@ class Controller extends BaseController
         }
 
         return $result;
+    }
+
+    public function GetCourseIdByModule($moduleId, $type)
+    {
+        $module = $this->GetModuleByType($moduleId, $type);
+        $block = CourseBlock::where('id', $module->block_id)->first();
+
+        return $block->course_id;
     }
 }

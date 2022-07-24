@@ -122,6 +122,8 @@ class WebinarController extends Controller
         foreach ($stream as $item)
         {
             $result[] = [
+                'id' => $item->id,
+                'course_id' => $this->GetCourseIdByModule($item->id, 'stream'),
                 'title' => $item->title,
                 'date' => $item->date_start,
                 'lectors' => $item->authors,
@@ -132,6 +134,7 @@ class WebinarController extends Controller
         foreach($webinars as $item)
         {
             $result[] = [
+                'id' => $item->id,
                 'title' => $item->name,
                 'date' => $item->date_start,
                 'lectors' => $item->authors,
