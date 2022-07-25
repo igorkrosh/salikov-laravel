@@ -12,6 +12,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\TinkoffController;
+use App\Http\Controllers\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,11 +31,21 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return Auth::user();
 });
 
-/*** UserController ***/
+/*** AuthController ***/
 
-Route::post('/register', [UserController::class, 'Register']);
-Route::post('/login', [UserController::class, 'Login'])->name('login');
-Route::post('/logout', [UserController::class, 'Logout']);
+Route::post('/register', [AuthController::class, 'Register']);
+Route::post('/login', [AuthController::class, 'Login'])->name('login');
+Route::post('/logout', [AuthController::class, 'Logout']);
+
+Route::post('/auth/code/email/send', [AuthController::class, 'SendEmailCode']);
+Route::post('/auth/code/sms/send', [AuthController::class, 'SendSmsCode']);
+Route::post('/auth/verificate/email', [AuthController::class, 'VerificateMail']);
+Route::post('/auth/login/email', [AuthController::class, 'LoginByEmail']);
+Route::post('/auth/login/sms', [AuthController::class, 'LoginBySms']);
+
+/**********************/
+
+/*** UserController ***/
 
 Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'GetUserProfile']);
 Route::middleware('auth:sanctum')->get('/user/calendar', [UserController::class, 'GetCalendar']);

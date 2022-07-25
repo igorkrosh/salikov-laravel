@@ -23,44 +23,6 @@ use App\Models\Progress;
 
 class UserController extends Controller
 {
-    public function Register(Request $request)
-    {
-        $request->validate([
-            'name' => ['required'],
-            'email' => ['required', 'email', 'unique:users'],
-            'password' => ['required', 'min:6', 'confirmed'],
-        ]);
-
-        User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-        
-    }
-
-    public function Login(Request $request)
-    {
-        $request->validate([
-            'email' => ['required'],
-            'password' => ['required']
-        ]);
-
-        if (Auth::attempt($request->only('email', 'password')))
-        {
-            return response()->json(Auth::user(), 200);
-        }
-
-        throw ValidationException::withMessages([
-            'email' => ['Почта или пароль не верны'],
-        ]);
-    }
-
-    public function Logout()
-    {
-        Auth::logout();
-    }
-
     public function GetUserProfile(Request $request)
     {
         $user = Auth::user();
@@ -167,10 +129,10 @@ class UserController extends Controller
         $user = Auth::user();
         
         $user->name = !empty($request->name) ? $request->name : $user->name;
-        $user->last_name = !empty($request->lastName) ? $request->lastName : $user->lastName;
+        $user->last_name = !empty($request->lastName) ? $request->lastName : $user->last_name;
         $user->birthday = !empty($request->birthday) ? $request->birthday : $user->birthday;
         $user->city = !empty($request->city) ? $request->city : $user->city;
-        $user->phone = !empty($request->phone) ? $request->phone : $user->phone;
+        $user->phone = !empty($request->phone) ? preg_replace('/[^0-9]/', '', $request->phone) : $user->phone;
         $user->email = !empty($request->email) ? $request->email : $user->email;
 
         $user->save();
