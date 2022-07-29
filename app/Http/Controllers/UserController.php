@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\User;
+use App\Models\JuricticUser;
 use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\Webinar;
@@ -23,6 +24,12 @@ use App\Models\Progress;
 
 class UserController extends Controller
 {
+    public function GetUser(Request $request)
+    {
+        return [
+            'user' => Auth::user()
+        ];
+    }
     public function GetUserProfile(Request $request)
     {
         $user = Auth::user();
@@ -89,6 +96,11 @@ class UserController extends Controller
             ];
         }
 
+        if ($user->jurictic)
+        {
+            $juricticUser = JuricticUser::where('user_id', $user->id)->first();
+        }
+
         $result = [
             'user' => [
                 'id' => $user->id,
@@ -102,7 +114,15 @@ class UserController extends Controller
                 'city' => $user->city,
                 'phone' => $user->phone,
                 'email' => $user->email,
-                'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path
+                'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path,
+                'jurictic' => $user->jurictic,
+                'jurictic_data' => $user->jurictic ? [
+                    'company_name' => $juricticUser->company_name,
+                    'inn' => $juricticUser->inn,
+                    'ogrn' => $juricticUser->ogrn,
+                    'account' => $juricticUser->account,
+                    'address' => $juricticUser->address,
+                ] : []
             ],
             'webinar' => $webinars,
             'results' => $results,
@@ -134,8 +154,25 @@ class UserController extends Controller
         $user->city = !empty($request->city) ? $request->city : $user->city;
         $user->phone = !empty($request->phone) ? preg_replace('/[^0-9]/', '', $request->phone) : $user->phone;
         $user->email = !empty($request->email) ? $request->email : $user->email;
+        $user->jurictic = $request->jurictic;
 
         $user->save();
+
+        if ($user->jurictic)
+        {
+            JuricticUser::where('user_id', $user->id)->delete();
+            
+            $juricticUser = new JuricticUser();
+
+            $juricticUser->user_id = $user->id;
+            $juricticUser->company_name = $request->jurictic_data['company_name'];
+            $juricticUser->inn = $request->jurictic_data['inn'];
+            $juricticUser->ogrn = empty($request->jurictic_data['ogrn']) ? '' : $request->jurictic_data['ogrn'];
+            $juricticUser->account = empty($request->jurictic_data['account']) ? '' : $request->jurictic_data['account'];
+            $juricticUser->address = empty($request->jurictic_data['address']) ? '' : $request->jurictic_data['address'];
+
+            $juricticUser->save();
+        }
 
         return $user;
     }

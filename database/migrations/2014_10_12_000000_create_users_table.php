@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+
 class CreateUsersTable extends Migration
 {
     /**
@@ -27,6 +28,7 @@ class CreateUsersTable extends Migration
             $table->integer('points')->default(0);
             $table->integer('invites')->default(0);
             $table->string('img_path')->default('');
+            $table->boolean('jurictic')->default(false);
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();

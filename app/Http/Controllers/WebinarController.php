@@ -20,19 +20,31 @@ class WebinarController extends Controller
     {
         $newWebinar = new Webinar();
 
-        $request->validate([
-            'name' => ['required'],
-            'authors' => ['required'],
-            'date_start' => ['required'],
-        ]);
+        $config = json_decode($request->input('webinar'));
 
-        $newWebinar->name = $request->name;
+        $newWebinar->name = $config->name;
         $newWebinar->creator = Auth::user()->id;
-        $newWebinar->authors = $request->authors;
-        $newWebinar->link = $request->link;
-        $newWebinar->date_start = $this->ConvertDate($request->date_start);
+        $newWebinar->authors = $config->authors;
+        $newWebinar->link = $config->link;
+        $newWebinar->date_start = $this->ConvertDate($config->date_start);
 
         $newWebinar->save();
+
+        if(!empty($config->new_files))
+        {
+            foreach ($config->new_files as $file)
+            {
+                app(FileController::class)->StoreWebinarFile($request->file($file->id), $newWebinar->id);
+            }
+        }
+
+        if (!empty($config->deleted_files))
+        {
+            foreach($config->deleted_files as $fileId)
+            {
+                app(FileController::class)->DeleteModuleFile($fileId);
+            }
+        }
 
         if (!empty($request->image))
         {
@@ -48,16 +60,34 @@ class WebinarController extends Controller
     public function EditWebinar(Request $request, $webinarId)
     {
         $webinar = Webinar::where('id', $webinarId)->first();
+        
+        $config = json_decode($request->input('webinar'));
 
-        $webinar->name = $request->name;
-        $webinar->authors = $request->authors;
-        $webinar->link = $request->link;
-        $webinar->date_start = $this->ConvertDate($request->date_start);
+        $webinar->name = $config->name;
+        $webinar->authors = $config->authors;
+        $webinar->link = $config->link;
+        $webinar->date_start = $this->ConvertDate($config->date_start);
 
         if (!empty($request->image))
         {
             $filePath = $this->LoadImage($request->image, $webinar->id, 'images/webinars/cover/');
             $webinar->image_path = $filePath;
+        }
+
+        if(!empty($config->new_files))
+        {
+            foreach ($config->new_files as $file)
+            {
+                app(FileController::class)->StoreWebinarFile($request->file($file->id), $webinar->id);
+            }
+        }
+
+        if(!empty($config->deleted_files))
+        {
+            foreach ($config->deleted_files as $fileId)
+            {
+                app(FileController::class)->DeleteModuleFile($fileId);
+            }
         }
 
         $webinar->save();
@@ -97,6 +127,10 @@ class WebinarController extends Controller
             'date_start' => $webinar->date_start,
             'image' => url('/').'/'.$webinar->image_path,
             'link' => $webinar->link,
+            'files' => $this->GetModuleFiles($webinarId, 'webinar'),
+            'preview' => $this->GetModulePreview($webinarId, 'webinar'),
+            'new_files' => [],
+            'deleted_files' => []
         ];
 
         return $result;

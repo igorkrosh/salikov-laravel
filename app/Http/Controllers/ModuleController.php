@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\TestResult;
 use App\Models\Course;
 use App\Models\CourseBlock;
+use App\Models\File;
 
 class ModuleController extends Controller
 {
@@ -23,9 +24,33 @@ class ModuleController extends Controller
         switch ($type) 
         {
             case 'stream':
-                return ModuleStream::where('id', $moduleId)->first();
+                $module = ModuleStream::where('id', $moduleId)->first();
+
+                return [
+                    'id' => $module->id,
+                    'block_id' => $module->block_id,
+                    'index' => $module->index,
+                    'authors' => $module->authors,
+                    'title' => $module->title,
+                    'link' => $module->link,
+                    'date_start' => $module->date_start,
+                    'files' => $this->GetModuleFiles($module->id, 'stream'),
+                    'preview' => $this->GetModulePreview($module->id, 'stream')
+                ];
             case 'video':
-                return ModuleVideo::where('id', $moduleId)->first();
+                $module = ModuleVideo::where('id', $moduleId)->first();
+
+                return [
+                    'id' => $module->id,
+                    'block_id' => $module->block_id,
+                    'index' => $module->index,
+                    'authors' => $module->authors,
+                    'title' => $module->title,
+                    'link' => $module->link,
+                    'kinescope_id' => $module->kinescope_id,
+                    'files' => $this->GetModuleFiles($module->id, 'video'),
+                    'preview' => $this->GetModulePreview($module->id, 'video')
+                ];
             case 'job':
                 $module =  ModuleJob::where('id', $moduleId)->first();
 
@@ -33,6 +58,8 @@ class ModuleController extends Controller
                     'title' => $module->title,
                     'text' => $module->text,
                     'file' => url('/').'/'.$module->file,
+                    'files' => $this->GetModuleFiles($module->id, 'job'),
+                    'preview' => $this->GetModulePreview($module->id, 'job')
                 ];
 
                 return $result;
@@ -42,6 +69,8 @@ class ModuleController extends Controller
                 $result = [
                     'test' => $module->test,
                     'file' => url('/').'/'.$module->file,
+                    'files' => $this->GetModuleFiles($module->id, 'test'),
+                    'preview' => $this->GetModulePreview($module->id, 'test')
                 ];
 
                 return $result;

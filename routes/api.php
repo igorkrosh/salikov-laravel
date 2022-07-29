@@ -37,6 +37,11 @@ Route::post('/register', [AuthController::class, 'Register']);
 Route::post('/login', [AuthController::class, 'Login'])->name('login');
 Route::post('/logout', [AuthController::class, 'Logout']);
 
+Route::get('/auth/token', [AuthController::class, 'Token']);
+
+Route::post('/auth/login', [AuthController::class, 'Login']);
+Route::post('/auth/logout', [AuthController::class, 'Logout']);
+
 Route::post('/auth/code/email/send', [AuthController::class, 'SendEmailCode']);
 Route::post('/auth/code/sms/send', [AuthController::class, 'SendSmsCode']);
 Route::post('/auth/verificate/email', [AuthController::class, 'VerificateMail']);
@@ -46,6 +51,8 @@ Route::post('/auth/login/sms', [AuthController::class, 'LoginBySms']);
 /**********************/
 
 /*** UserController ***/
+
+Route::middleware('auth:sanctum')->get('/user', [UserController::class, 'GetUser']);
 
 Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'GetUserProfile']);
 Route::middleware('auth:sanctum')->get('/user/calendar', [UserController::class, 'GetCalendar']);
@@ -152,11 +159,12 @@ Route::middleware('auth:sanctum')->delete('/chat/{type}/{streamId}/message/{mess
 /**********************/
 
 /*** TinkoffController ***/
-Route::middleware('auth:sanctum')->get('/buy/course/{courseId}/access/{access}/days/{days}', [TinkoffController::class, 'BuyCourse']);
-
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}', [TinkoffController::class, 'BuyCourse']);
+Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/create', [TinkoffController::class, 'CourseOrderCreate']);
+Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/jurictic', [TinkoffController::class, 'SendJuricticNotification']);
+
 Route::post('/buy/order/notification', [TinkoffController::class, 'PaymentNotification']);
-Route::post('/buy/credit/{userId}/notification', [TinkoffController::class, 'CreditNotification']);
+Route::post('/buy/credit/notification', [TinkoffController::class, 'CreditNotification']);
 
 /*************************/
 

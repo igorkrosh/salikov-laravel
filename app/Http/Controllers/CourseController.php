@@ -16,6 +16,7 @@ use App\Models\ModuleJob;
 use App\Models\ModuleTest;
 use App\Models\User;
 use App\Models\BlockAccess;
+use App\Models\File;
 
 class CourseController extends Controller
 {
@@ -76,6 +77,7 @@ class CourseController extends Controller
             {
                 
                 $MIGXbloks[$indexMIGX]['desc'] .= '<li>'.$module->title.'</li>';
+
                 if ($module->type == 'stream')
                 {
                     $newModuleStream = new ModuleStream();
@@ -92,6 +94,14 @@ class CourseController extends Controller
                     $newModuleStream->date_start = $date_start;
 
                     $newModuleStream->save();
+
+                    if (!empty($module->new_files))
+                    {
+                        foreach ($module->new_files as $file)
+                        {
+                            app(FileController::class)->StoreModuleFile($request->file($file->id), $newModuleStream->id, $module->type);
+                        }
+                    }
                 }
 
                 if ($module->type == 'video')
@@ -110,38 +120,36 @@ class CourseController extends Controller
                     {
                         app(KinescopeController::class)->LoadVideo($newModuleVideo->id, $request->file($module->fileId));
                     }
+
+                    if (!empty($module->new_files))
+                    {
+                        foreach ($module->new_files as $file)
+                        {
+                            app(FileController::class)->StoreModuleFile($request->file($file->id), $newModuleVideo->id, $module->type);
+                        }
+                    }
                 }
 
                 if ($module->type == 'job')
                 {
                     $newModuleJob = new ModuleJob();
 
-                    $deadline = $module->deadline;
-                    $deadline = strtotime($deadline);
-                    $deadline = date('Y-m-d', $deadline);
-
-                    $check_date = $module->check_date;
-                    $check_date = strtotime($check_date);
-                    $check_date = date('Y-m-d', $check_date);
-
                     $newModuleJob->block_id = $newBlock->id;
                     $newModuleJob->index = $index;
                     $newModuleJob->authors = $module->authors;
                     $newModuleJob->title = $module->title;
                     $newModuleJob->text = $module->text;
-                    $newModuleJob->check_date = $check_date;
-                    $newModuleJob->deadline = $deadline;
+                    $newModuleJob->check_date = $this->ConvertDate($module->check_date);
+                    $newModuleJob->deadline = $this->ConvertDate($module->deadline);
 
                     $newModuleJob->save();
 
-                    if (!empty($module->fileId))
+                    if (!empty($module->new_files))
                     {
-                        $file = $request->file($module->fileId);
-
-                        $path = app('App\Http\Controllers\FileController')->StoreJobFile($file, $newModuleJob->id);
-
-                        $newModuleJob->file = $path;
-                        $newModuleJob->save();
+                        foreach ($module->new_files as $file)
+                        {
+                            app(FileController::class)->StoreModuleFile($request->file($file->id), $newModuleJob->id, $module->type);
+                        }
                     }
                 }
 
@@ -162,20 +170,17 @@ class CourseController extends Controller
                     $newModuleTest->authors = $module->authors;
                     $newModuleTest->title = $module->title;
                     $newModuleTest->test = $module->test;
-                    //$newModuleTest->file = $module['file'];
                     $newModuleTest->check_date = $check_date;
                     $newModuleTest->deadline = $deadline;
 
                     $newModuleTest->save();
 
-                    if (!empty($module->fileId))
+                    if (!empty($module->new_files))
                     {
-                        $file = $request->file($module->fileId);
-                        
-                        $path = app('App\Http\Controllers\FileController')->StoreTestFile($file, $newModuleTest->id);
-
-                        $newModuleTest->file = $path;
-                        $newModuleTest->save();
+                        foreach ($module->new_files as $file)
+                        {
+                            app(FileController::class)->StoreModuleFile($request->file($file->id), $newModuleTest->id, $module->type);
+                        }
                     }
                 }
             }
@@ -385,7 +390,10 @@ class CourseController extends Controller
                     'link' => $module->link,
                     'date' => $module->date_start,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'stream'),
-                    'access' => $this->IsStart($module->date_start)
+                    'access' => $this->IsStart($module->date_start),
+                    'files' => $this->GetModuleFiles($module->id, 'stream'),
+                    'deleted_files' => [],
+                    'new_files' => [],
                 ];
             }
 
@@ -401,7 +409,10 @@ class CourseController extends Controller
                     'title' => $module->title,
                     'link' => $module->link,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'video'),
-                    'access' => $this->IsStart($module->date_start)
+                    'access' => $this->IsStart($module->date_start),
+                    'files' => $this->GetModuleFiles($module->id, 'video'),
+                    'deleted_files' => [],
+                    'new_files' => [],
                 ];
             }
 
@@ -420,7 +431,10 @@ class CourseController extends Controller
                     'check_date' => $module->check_date,
                     'file_path' => url('/').'/'.$module->file,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'job'),
-                    'access' => true
+                    'access' => true,
+                    'files' => $this->GetModuleFiles($module->id, 'job'),
+                    'deleted_files' => [],
+                    'new_files' => [],
                 ];
             }
 
@@ -439,7 +453,10 @@ class CourseController extends Controller
                     'check_date' => $module->check_date,
                     'file_path' => url('/').'/'.$module->file,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'test'),
-                    'access' => true
+                    'access' => true,
+                    'files' => $this->GetModuleFiles($module->id, 'test'),
+                    'deleted_files' => [],
+                    'new_files' => [],
                 ];
             }
 
@@ -455,7 +472,7 @@ class CourseController extends Controller
                 'date' => $block->date_start,
                 'index' => $block->index,
                 'modules' => $modules,
-                'access' => $access
+                'access' => $access,
             ];
 
         }
@@ -485,8 +502,6 @@ class CourseController extends Controller
             $course->image_path = $filePath;
         }
 
-        //$blocks = CourseBlock::where('course_id', $courseId)->get();
-
         foreach ($config->blocks as $block)
         {
             if (empty($block->id))
@@ -511,6 +526,9 @@ class CourseController extends Controller
                 {
                     $module->authors = $config->authors;
                 }
+
+                $moduleId = null;
+
                 switch ($module->type) 
                 {
                     case 'stream':
@@ -531,6 +549,14 @@ class CourseController extends Controller
                         $moduleStream->date_start = $this->ConvertDate($module->date);
 
                         $moduleStream->save();
+
+                        if (!empty($module->new_files))
+                        {
+                            foreach ($module->new_files as $file)
+                            {
+                                app(FileController::class)->StoreModuleFile($request->file($file->id), $moduleStream->id, 'stream');
+                            }
+                        }
 
                         break;
                     case 'video':
@@ -555,6 +581,14 @@ class CourseController extends Controller
                         {
                             app(KinescopeController::class)->LoadVideo($moduleVideo->id, $request->file($module->fileId));
                         }
+
+                        if (!empty($module->new_files))
+                        {
+                            foreach ($module->new_files as $file)
+                            {
+                                app(FileController::class)->StoreModuleFile($request->file($file->id), $moduleVideo->id, 'video');
+                            }
+                        }
                         
                         break;
                     case 'job':
@@ -577,19 +611,12 @@ class CourseController extends Controller
 
                         $moduleJob->save();
 
-                        if (!empty($module->fileId))
+                        if (!empty($module->new_files))
                         {
-                            $file = $request->file($module->fileId);
-                            $path = app('App\Http\Controllers\FileController')->StoreJobFile($file, $moduleJob->id);
-
-                            $moduleJob->file = $path;
-                            $moduleJob->save();
-                        }
-
-
-                        if (!empty($file))
-                        {
-                            
+                            foreach ($module->new_files as $file)
+                            {
+                                app(FileController::class)->StoreModuleFile($request->file($file->id), $moduleJob->id, 'job');
+                            }
                         }
 
                         break;
@@ -608,51 +635,70 @@ class CourseController extends Controller
                         $moduleTest->authors = $module->authors;
                         $moduleTest->title = $module->title;
                         $moduleTest->test = $module->test;
-                        //$moduleTest->file = $module['file'];
                         $moduleTest->check_date = $this->ConvertDate($module->check_date);
                         $moduleTest->deadline = $this->ConvertDate($module->deadline);
 
-                        $moduleTest->save();
-
-                        if (!empty($module->fileId))
-                        {
-                            $file = $request->file($module->fileId);
-                            
-                            $path = app('App\Http\Controllers\FileController')->StoreTestFile($file, $moduleTest->id);
-
-                            $moduleTest->file = $path;
-                            $moduleTest->save();
-                        }
+                        $moduleTest->save();   
                         
+                        if (!empty($module->new_files))
+                        {
+                            foreach ($module->new_files as $file)
+                            {
+                                app(FileController::class)->StoreModuleFile($request->file($file->id), $moduleTest->id, 'test');
+                            }
+                        }
+
                         break;
                     default:
-                        # code...
                         break;
                 }
+
+                if (!empty($module->deleted_files))
+                {
+                    foreach($module->deleted_files as $fileId)
+                    {
+                        app(FileController::class)->DeleteModuleFile($fileId);
+                    }
+                }
+
+                
             }
 
         }
 
         $course->save();
 
-        foreach ($config->deleted->stream as $id)
+        foreach(['stream', 'video', 'job', 'test'] as $type)
         {
-            ModuleStream::where('id', $id)->delete();
-        }
+            foreach ($config->deleted->$type as $id)
+            {
+                switch ($type) 
+                {
+                    case 'stream':
+                        $module = ModuleStream::where('id', $id)->delete();
+                        break;
+                    case 'video':
+                        $module = ModuleVideo::where('id', $id)->delete();
+                        break;
+                    case 'job':
+                        $module = ModuleJob::where('id', $id)->delete();
+                        break;
+                    case 'test':
+                        $module = ModuleTest::where('id', $id)->delete();
+                        break;
+                    default:
+                        break;
+                }
 
-        foreach ($config->deleted->video as $id)
-        {
-            ModuleVideo::where('id', $id)->delete();
-        }
-
-        foreach ($config->deleted->job as $id)
-        {
-            ModuleJob::where('id', $id)->delete();
-        }
-
-        foreach ($config->deleted->test as $id)
-        {
-            ModuleTest::where('id', $id)->delete();
+                $files = File::where([['module_id', $id], ['type', $type]])->get();
+    
+                foreach($files as $file)
+                {
+                    app(FileController::class)->DeleteModuleFile($file->id);
+                    
+                    $file->delete();
+                }
+            }
         }
 
         return $course;
@@ -662,14 +708,25 @@ class CourseController extends Controller
     {
         $blocks = CourseBlock::where('course_id', $courseId)->get();
 
-        foreach ($blocks as $block)
-        {
-            ModuleStream::where('block_id', $block->id)->delete();
-            ModuleVideo::where('block_id', $block->id)->delete();
-            ModuleJob::where('block_id', $block->id)->delete();
-            ModuleTest::where('block_id', $block->id)->delete();
-        }
+        $modules = $this->GetModules($courseId);
 
+        foreach (['stream', 'video', 'job', 'test'] as $type)
+        {
+            foreach($modules[$type] as $module)
+            {
+                $files = File::where([['module_id', $moduleId], ['type', $type]])->get();
+    
+                foreach($files as $file)
+                {
+                    app(FileController::class)->DeleteModuleFile($file->id);
+                    
+                    $file->delete();
+                }
+    
+                $module->delete();
+            }
+        }
+        
         CourseBlock::where('course_id', $courseId)->delete();
         Course::where('id', $courseId)->delete();
 

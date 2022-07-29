@@ -18,6 +18,7 @@ use App\Models\ModuleVideo;
 use App\Models\ModuleJob;
 use App\Models\ModuleTest;
 use App\Models\Progress;
+use App\Models\File;
 
 class Controller extends BaseController
 {
@@ -151,5 +152,39 @@ class Controller extends BaseController
         $block = CourseBlock::where('id', $module->block_id)->first();
 
         return $block->course_id;
+    }
+
+    public function GetModuleFiles($moduleId, $type)
+    {
+        $files = File::where([['module_id', $moduleId], ['type', $type]])->get();
+        $result = [];
+
+        foreach ($files as $file)
+        {
+            $result[] = [
+                'id' => $file->id,
+                'url' => url('/').'/'.$file->path,
+                'filename' => $file->filename,
+            ];
+        }
+
+        return $result;
+    }
+
+    public function GetModulePreview($moduleId, $type)
+    {
+        $files = File::where([['module_id', $moduleId], ['type', $type]])->whereIn('extension', ['jpg', 'jpeg', 'png', 'gif', 'svg'])->get();
+        $result = [];
+
+        foreach ($files as $file)
+        {
+            $result[] = [
+                'id' => $file->id,
+                'url' => url('/').'/'.$file->path,
+                'filename' => $file->filename,
+            ];
+        }
+
+        return $result;
     }
 }

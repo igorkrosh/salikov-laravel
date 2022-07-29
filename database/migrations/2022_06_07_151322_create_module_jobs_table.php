@@ -20,7 +20,6 @@ class CreateModuleJobsTable extends Migration
             $table->string('authors')->default('');;
             $table->string('title');
             $table->longText('text');
-            $table->string('file')->default('');
             $table->dateTime('deadline', $precision = 0);
             $table->dateTime('check_date', $precision = 0);
             $table->timestamps();

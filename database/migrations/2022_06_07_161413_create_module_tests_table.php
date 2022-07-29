@@ -22,7 +22,6 @@ class CreateModuleTestsTable extends Migration
             $table->json('test');
             $table->dateTime('deadline', $precision = 0);
             $table->dateTime('check_date', $precision = 0);
-            $table->string('file')->default('');
             $table->timestamps();
         });
     }

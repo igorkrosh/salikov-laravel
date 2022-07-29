@@ -12,10 +12,16 @@ use DateTime;
 use DateTimeZone;
 
 use App\Models\User;
+use App\Models\JuricticUser;
 use App\Models\Session;
 
 class AuthController extends Controller
 {
+    public function Token(Request $request)
+    {
+        $request->session()->token();
+    }
+
     public function Login(Request $request)
     {
         $request->validate([
@@ -28,10 +34,15 @@ class AuthController extends Controller
 
         if (Auth::attempt($request->only('email', 'password')))
         {
-            $session->validation_code = '';
-            $session->save();
+            if (!empty($session->validation_code))
+            {
+                $session->validation_code = '';
+                $session->save();
+            }
 
-            return response()->json(Auth::user(), 200);
+            return [
+                'token' => Auth::user()->createToken('authentication')->plainTextToken
+            ];
         }
 
         throw ValidationException::withMessages([
@@ -69,6 +80,8 @@ class AuthController extends Controller
         $session->save();
 
         Auth::loginUsingId($user->id, true);
+
+        return ['token' => Auth::user()->createToken('authentication')->plainTextToken];
     }
 
     public function LoginBySms(Request $request)
@@ -101,6 +114,8 @@ class AuthController extends Controller
         $session->save();
 
         Auth::loginUsingId($user->id, true);
+
+        return ['token' => Auth::user()->createToken('authentication')->plainTextToken];
     }
 
     public function Logout()
@@ -109,6 +124,48 @@ class AuthController extends Controller
     }
 
     public function Register(Request $request)
+    {
+        $request->validate([
+            'name' => ['required'],
+            'email' => ['required', 'email', 'unique:users'],
+            'password' => ['required', 'min:6', 'confirmed'],
+        ]);
+
+        if ($request->jurictic)
+        {
+            $request->validate([
+                'company_name' => ['required'],
+                'inn' => ['required'],
+            ]);
+        }
+
+        $user = new User();
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->password = Hash::make($request->password);
+        $user->jurictic = empty($request->jurictic) ? false : $request->jurictic;
+
+        $user->save();
+
+        if ($request->jurictic)
+        {
+            $juricticUser = new JuricticUser();
+
+            $juricticUser->user_id = $user->id;
+            $juricticUser->company_name = $request->company_name;
+            $juricticUser->inn = $request->inn;
+            $juricticUser->ogrn = empty($request->ogrn) ? '' : $request->ogrn;
+            $juricticUser->account = empty($request->account) ? '' : $request->account;
+            $juricticUser->address = empty($request->address) ? '' : $request->address;
+
+            $juricticUser->save();
+        }
+
+        Auth::attempt($request->only('email', 'password'));
+    }
+
+    public function RegisterJuristic(Request $request)
     {
         $request->validate([
             'name' => ['required'],
@@ -177,6 +234,7 @@ class AuthController extends Controller
         }
 
         $code = rand(1000, 9999);
+
         $sessionId = $request->session()->getId();
         $session = Session::where('id', $sessionId)->first();
 

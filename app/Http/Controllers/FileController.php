@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Course;
 use App\Models\Webinar;
 use App\Models\ModuleJob;
+use App\Models\File;
 
 class FileController extends Controller
 {
@@ -67,12 +68,50 @@ class FileController extends Controller
         return $imagePath;
     }
 
-    public function StoreJobFile($file, $moduleId)
+    public function StoreModuleFile($file, $moduleId, $type)
     {
-        $path = 'files/modules/job/'.$moduleId.'/';
+        $path = "files/modules/$type/$moduleId/";
+        $fullPath = 'storage/'.$path.$file->getClientOriginalName();
+
+        if (empty(File::where('path', $fullPath)->first()))
+        {
+            $fileModel = new File();
+
+            $fileModel->module_id = $moduleId;
+            $fileModel->type = $type;
+            $fileModel->path = 'storage/'.$path.$file->getClientOriginalName();
+            $fileModel->filename = $file->getClientOriginalName();
+            $fileModel->extension = $file->getClientOriginalExtension();
+    
+            $fileModel->save();
+        }
+
         Storage::disk('public')->putFileAs($path, $file, $file->getClientOriginalName());
 
-        return 'storage/'.$path.$file->getClientOriginalName();
+        return;
+    }
+
+    public function StoreWebinarFile($file, $webinarId)
+    {
+        $path = "files/webinar/$webinarId/";
+        $fullPath = 'storage/'.$path.$file->getClientOriginalName();
+
+        if (empty(File::where('path', $fullPath)->first()))
+        {
+            $fileModel = new File();
+
+            $fileModel->module_id = $webinarId;
+            $fileModel->type = 'webinar';
+            $fileModel->path = 'storage/'.$path.$file->getClientOriginalName();
+            $fileModel->filename = $file->getClientOriginalName();
+            $fileModel->extension = $file->getClientOriginalExtension();
+    
+            $fileModel->save();
+        }
+
+        Storage::disk('public')->putFileAs($path, $file, $file->getClientOriginalName());
+
+        return;
     }
 
     public function StoreTestFile($file, $moduleId)
@@ -102,5 +141,19 @@ class FileController extends Controller
         $time = time();
 
         return 'storage'.$path.'/'.$filename."?v=$time";
+    }
+
+    public function DeleteModuleFile($fileId)
+    {
+        $file = File::where('id', $fileId)->first();
+
+        if (empty($file))
+        {
+            return;
+        }
+
+        Storage::disk('public')->delete(str_replace('storage/', '', $file->path));
+
+        $file->delete();
     }
 }

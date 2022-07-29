@@ -90,9 +90,22 @@ class TinkoffController extends Controller
         broadcast(new PaymentNotification($order->user_id, $order->status));
     }
 
-    public function CreditNotification(Request $request, $userId)
+    public function CreditNotification(Request $request)
     {
-        broadcast(new PaymentNotification($userId, $request->all()));
+        if ($request->status != "signed")
+        {
+            return;
+        }
+
+        $orderId = $request->id;
+        $order = Order::where('order_id', $orderId)->first();
+        $order->status = 'SIGNED';
+
+        $order->save();
+
+        $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
+
+        broadcast(new PaymentNotification($order->user_id, 'CONFIRMED'));
     }
 
 
@@ -138,6 +151,78 @@ class TinkoffController extends Controller
         $courseAccess->deadline = $dt->format('Y-m-d H:i:s');
 
         $courseAccess->save();
+    }
+
+    public function CourseOrderCreate(Request $request, $courseId)
+    {
+        $request->validate([
+            'price' => ['required'],
+            'access' => ['required'],
+            'access_days' => ['required'],
+            'packet_name' => ['required'],
+            'order_id' => ['required']
+        ]);
+
+        $courseName = Course::where('id', $courseId)->first()->name;
+        $packetName = $request->packet_name;
+        $userId = Auth::user()->id;
+
+        $order = new Order();
+
+        $order->user_id = $userId;
+        $order->order_id = $request->order_id;
+        $order->days = $request->access_days;
+        $order->access = $request->access;
+        $order->status = 'APPROVED';
+        $order->price = $request->price;
+        $order->course_id = $courseId;
+        $order->packet = $packetName;
+
+        $order->save();
+    }
+
+    public function SendJuricticNotification(Request $request, $courseId)
+    {
+        $courseName = Course::where('id', $courseId)->first()->name;
+
+        $companyName = empty($request->company_name) ? '-' : $request->company_name;
+        $inn = empty($request->inn) ? '-' : $request->inn;
+        $ogrn = empty($request->ogrn) ? '-' : $request->ogrn;
+        $account = empty($request->account) ? '-' : $request->account;
+        $address = empty($request->address) ? '-' : $request->address;
+        $tariff = empty($request->tariff) ? '-' : $request->tariff;
+
+        $user = Auth::user();
+
+        $userName = $user->name.' '.$user->last_name;
+        $userId = $user->id;
+
+        $html = "
+        <h1>Заявка на покупку курса $courseName</h1>
+        <p><b>Пользователь:</b> $userName (ID: $userId)</p>
+        <p><b>Тариф:</b> $tariff</p>
+        <p><b>Название компании:</b> $companyName</p>
+        <p><b>ИНН:</b> $inn</p>
+        <p><b>ОГРН:</b> $ogrn</p>
+        <p><b>Рассчетный счет:</b> $account</p>
+        <p><b>Адрес:</b> $address</p>
+        ";
+
+        $email = [
+            'from_email' => 'info@kathedra.ru',
+            'from_name' => 'Образовательная платформа',
+            'to' => 'info@kathedra.ru',
+            'subject' => 'Заявка на покупку курса',
+            'text' => 'Заявка',
+            'html' => $html,
+            'payment' => "subscriber_priority",
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.config('notisend.key')
+        ])->withOptions([
+            'verify' => false,
+        ])->post('https://api.notisend.ru/v1/email/messages', $email);
     }
 
     private function MakeHash($orderData)
