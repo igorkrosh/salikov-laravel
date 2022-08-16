@@ -94,6 +94,7 @@ Route::middleware('auth:sanctum')->delete('/course/{courseId}/delete', [CourseCo
 Route::middleware('auth:sanctum')->get('/webinar/get-by-user', [WebinarController::class, 'GetWebinarsByUser']);
 Route::middleware('auth:sanctum')->get('/stream/get', [WebinarController::class, 'GetStreams']);
 Route::middleware('auth:sanctum')->get('/webinar/{webinarId}/get', [WebinarController::class, 'GetWebinarById']);
+Route::middleware('auth:sanctum')->get('/webinar/{webinarId}/config', [WebinarController::class, 'GetWebinar']);
 Route::middleware('auth:sanctum')->get('/webinar/all', [WebinarController::class, 'GetWebinarAll']);
 
 Route::middleware('auth:sanctum')->post('/webinar/create', [WebinarController::class, 'CreateWebinar']);
@@ -160,9 +161,15 @@ Route::middleware('auth:sanctum')->delete('/chat/{type}/{streamId}/message/{mess
 
 /*** TinkoffController ***/
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}', [TinkoffController::class, 'BuyCourse']);
+Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/free', [TinkoffController::class, 'TakeFreeCourse']);
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/create', [TinkoffController::class, 'CourseOrderCreate']);
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/jurictic', [TinkoffController::class, 'SendJuricticNotification']);
+Route::middleware('auth:sanctum')->post('/buy/webinar/{webinarId}/order/jurictic', [TinkoffController::class, 'SendWebinarJuricticNotification']);
 
+Route::middleware('auth:sanctum')->post('/buy/webinar/{webinarId}', [TinkoffController::class, 'BuyWebinar']);
+Route::middleware('auth:sanctum')->post('/buy/webinar/{webinarId}/order/free', [TinkoffController::class, 'TakeFreeWebinar']);
+
+Route::post('/buy/order/notification', [TinkoffController::class, 'PaymentNotification']);
 Route::post('/buy/order/notification', [TinkoffController::class, 'PaymentNotification']);
 Route::post('/buy/credit/notification', [TinkoffController::class, 'CreditNotification']);
 

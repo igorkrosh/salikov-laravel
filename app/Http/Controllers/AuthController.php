@@ -19,7 +19,7 @@ class AuthController extends Controller
 {
     public function Token(Request $request)
     {
-        $request->session()->token();
+        return $request->session()->token();
     }
 
     public function Login(Request $request)

@@ -13,6 +13,8 @@ use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\BlockAccess;
 use App\Models\CourseAccess;
+use App\Models\WebinarAccess;
+use App\Models\Webinar;
 use App\Models\Order;
 
 use App\Events\PaymentNotification;
@@ -42,20 +44,18 @@ class TinkoffController extends Controller
             'Description' => $desc,
             'OrderId' => $orderId,
             'NotificationURL' => url('/')."/api/buy/order/notification",
-            'DATA' => [
-                'accces' => 5
-            ]
         ];
 
         $order = new Order();
 
         $order->user_id = $userId;
         $order->order_id = $orderId;
+        $order->type = 'course';
         $order->days = $request->access_days;
         $order->access = $request->access;
         $order->status = 'INIT';
         $order->price = $request->price;
-        $order->course_id = $courseId;
+        $order->object_id = $courseId;
         $order->packet = $packetName;
 
         $order->save();
@@ -68,6 +68,104 @@ class TinkoffController extends Controller
         $data->hash = $this->MakeHash($orderData);
 
         return $data;
+    }
+
+    public function TakeFreeCourse(Request $request, $courseId)
+    {
+        $request->validate([
+            'price' => ['required'],
+            'access' => ['required'],
+            'access_days' => ['required'],
+            'packet_name' => ['required']
+        ]);
+
+        $courseName = Course::where('id', $courseId)->first()->name;
+        $packetName = $request->packet_name;
+        $userId = Auth::user()->id;
+
+        $order = new Order();
+
+        $order->user_id = $userId;
+        $order->order_id = time();
+        $order->days = $request->access_days;
+        $order->access = $request->access;
+        $order->status = 'CONFIRMED';
+        $order->price = $request->price;
+        $order->course_id = $courseId;
+        $order->packet = $packetName;
+
+        $order->save();
+
+        $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
+
+        broadcast(new PaymentNotification($order->user_id, $order->status));
+    }
+
+    public function BuyWebinar(Request $request, $webinarId)
+    {
+        $request->validate([
+            'price' => ['required'],
+        ]);
+
+        $webinarName = Webinar::where('id', $webinarId)->first()->name;
+        $userId = Auth::user()->id;
+
+        $amount = $request->price * 100;
+        $desc = "Покупка доступа к вебинару \"$webinarName\"";
+        $orderId = time();
+
+        $orderData = [
+            'TerminalKey' => config('tinkoff.terminal_key'),
+            'Amount' => $amount,
+            'Description' => $desc,
+            'OrderId' => $orderId,
+            'NotificationURL' => url('/')."/api/buy/order/notification",
+        ];
+
+        $order = new Order();
+
+        $order->user_id = $userId;
+        $order->order_id = $orderId;
+        $order->type = 'webinar';
+        $order->days = 0;
+        $order->access = 0;
+        $order->status = 'INIT';
+        $order->price = $request->price;
+        $order->object_id = $webinarId;
+        $order->packet = '';
+
+        $order->save();
+
+        $response = Http::withOptions([
+            'verify' => false,
+        ])->post('https://securepay.tinkoff.ru/v2/Init', $orderData);
+
+        $data = $response->object();
+
+        return $data;
+    }
+
+    public function TakeFreeWebinar(Request $request, $webinarId)
+    {
+        $userId = Auth::user()->id;
+
+        $order = new Order();
+
+        $order->user_id = $userId;
+        $order->order_id = time();
+        $order->type = 'webinar';
+        $order->days = 0;
+        $order->access = 0;
+        $order->status = 'CONFIRMED';
+        $order->price = 0;
+        $order->object_id = $webinarId;
+        $order->packet = '';
+
+        $order->save();
+
+        $this->AddAccessWebinar($order->object_id, $order->user_id);
+
+        broadcast(new PaymentNotification($order->user_id, $order->status));
     }
 
     public function PaymentNotification(Request $request)
@@ -84,9 +182,19 @@ class TinkoffController extends Controller
         {
             return;
         }
+        
+        if ($order->type == 'course')
+        {
+            $this->AddAccessCourse($order->object_id, $order->user_id, $order->access, $order->days);
+        }
 
-        $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
-
+        
+        if ($order->type == 'webinar')
+        {
+            $this->AddAccessWebinar($order->object_id, $order->user_id);
+        }
+        
+        
         broadcast(new PaymentNotification($order->user_id, $order->status));
     }
 
@@ -109,7 +217,7 @@ class TinkoffController extends Controller
     }
 
 
-    public function AddAccess($courseId, $userId, $access, $days)
+    public function AddAccessCourse($courseId, $userId, $access, $days)
     {
         $blocks = CourseBlock::where('course_id', $courseId)->orderBy('index')->get();
 
@@ -117,9 +225,7 @@ class TinkoffController extends Controller
 
         foreach($blocks as $block)
         {
-            $count++;
-
-            if ($count > $access && $access != 0)
+            if ($count >= $access && $access != 0)
             {
                 break;
             }
@@ -129,6 +235,7 @@ class TinkoffController extends Controller
                 continue;
             }
 
+            $count++;
 
             $accessModel = new BlockAccess();
 
@@ -151,6 +258,16 @@ class TinkoffController extends Controller
         $courseAccess->deadline = $dt->format('Y-m-d H:i:s');
 
         $courseAccess->save();
+    }
+
+    public function AddAccessWebinar($webinarId, $userId)
+    {
+        $access = new WebinarAccess();
+
+        $access->user_id = $userId;
+        $access->webinar_id = $webinarId;
+
+        $access->save();
     }
 
     public function CourseOrderCreate(Request $request, $courseId)
@@ -201,6 +318,50 @@ class TinkoffController extends Controller
         <h1>Заявка на покупку курса $courseName</h1>
         <p><b>Пользователь:</b> $userName (ID: $userId)</p>
         <p><b>Тариф:</b> $tariff</p>
+        <p><b>Название компании:</b> $companyName</p>
+        <p><b>ИНН:</b> $inn</p>
+        <p><b>ОГРН:</b> $ogrn</p>
+        <p><b>Рассчетный счет:</b> $account</p>
+        <p><b>Адрес:</b> $address</p>
+        ";
+
+        $email = [
+            'from_email' => 'info@kathedra.ru',
+            'from_name' => 'Образовательная платформа',
+            'to' => 'info@kathedra.ru',
+            'subject' => 'Заявка на покупку курса',
+            'text' => 'Заявка',
+            'html' => $html,
+            'payment' => "subscriber_priority",
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.config('notisend.key')
+        ])->withOptions([
+            'verify' => false,
+        ])->post('https://api.notisend.ru/v1/email/messages', $email);
+    }
+
+    public function SendWebinarJuricticNotification(Request $request, $webinarId)
+    {
+        $webinarName = Course::where('id', $courseId)->first()->name;
+
+        $companyName = empty($request->company_name) ? '-' : $request->company_name;
+        $inn = empty($request->inn) ? '-' : $request->inn;
+        $ogrn = empty($request->ogrn) ? '-' : $request->ogrn;
+        $account = empty($request->account) ? '-' : $request->account;
+        $address = empty($request->address) ? '-' : $request->address;
+        $tariff = empty($request->tariff) ? '-' : $request->tariff;
+
+        $user = Auth::user();
+
+        $userName = $user->name.' '.$user->last_name;
+        $userId = $user->id;
+
+        $html = "
+        <h1>Заявка на покупку вебинара $webinarName</h1>
+        <p><b>Пользователь:</b> $userName (ID: $userId)</p>
+        <p><b>Вебинар:</b> $webinarName</p>
         <p><b>Название компании:</b> $companyName</p>
         <p><b>ИНН:</b> $inn</p>
         <p><b>ОГРН:</b> $ogrn</p>

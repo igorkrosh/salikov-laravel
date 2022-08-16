@@ -17,12 +17,13 @@ class CreateOrdersTable extends Migration
             $table->id();
             $table->integer('user_id');
             $table->string('order_id');
-            $table->integer('course_id');
-            $table->string('days');
-            $table->string('access');
+            $table->string('type');
+            $table->integer('object_id');
+            $table->string('days')->default('0');
+            $table->string('access')->default('0');
             $table->string('status');
             $table->string('price');
-            $table->string('packet');
+            $table->string('packet')->default('');
             $table->timestamps();
         });
     }

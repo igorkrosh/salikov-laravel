@@ -701,6 +701,47 @@ class CourseController extends Controller
             }
         }
 
+        foreach ($config->deleted->block as $id)
+        {
+            foreach(['stream', 'video', 'job', 'test'] as $type)
+            {
+                switch ($type) 
+                {
+                    case 'stream':
+                        $module = ModuleStream::where('block_id', $id)->first();
+                        break;
+                    case 'video':
+                        $module = ModuleVideo::where('block_id', $id)->first();
+                        break;
+                    case 'job':
+                        $module = ModuleJob::where('block_id', $id)->first();
+                        break;
+                    case 'test':
+                        $module = ModuleTest::where('block_id', $id)->first();
+                        break;
+                    default:
+                        break;
+                }
+
+                if (!empty($module))
+                {
+                    $files = File::where([['module_id', $module->id], ['type', $module->id]])->get();
+    
+                    foreach($files as $file)
+                    {
+                        app(FileController::class)->DeleteModuleFile($file->id);
+                        
+                        $file->delete();
+                    }
+    
+                    $module->delete();
+                }
+            }
+
+            CourseBlock::where('id', $id)->delete();
+        }
+
+
         return $course;
     }
 

@@ -21,6 +21,7 @@ use App\Models\ModuleTest;
 use App\Models\Task;
 use App\Models\Notification;
 use App\Models\Progress;
+use App\Models\WebinarAccess;
 
 class UserController extends Controller
 {
@@ -67,8 +68,10 @@ class UserController extends Controller
             }
         }
 
-        foreach (Webinar::get() as $webinar)
+        foreach (WebinarAccess::where('user_id', $user->id)->get() as $webinarAccess)
         {
+            $webinar = Webinar::where('id', $webinarAccess->webinar_id)->first();
+
             $webinars[] = [
                 'id' => $webinar->id,
                 'type' => 'webinar',
@@ -409,7 +412,15 @@ class UserController extends Controller
                 }
             }
 
-            $progress = round(($done / $count) * 100);
+            if ($done == 0)
+            {
+                $progress = 0;
+            }
+            else 
+            {
+                $progress = round(($done / $count) * 100);
+            }
+
 
             $data = [
                 'id' => $item->course_id,

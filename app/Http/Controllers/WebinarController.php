@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 
 use App\Models\Webinar;
 use App\Models\Course;
@@ -53,6 +54,18 @@ class WebinarController extends Controller
         }
 
         $newWebinar->save();
+
+        $imgUrl = url('/').'/'.$newWebinar->image_path;
+
+        if (config('modx.sync'))
+        {
+            $response = Http::post(config('modx.api').'/CreateWebinar', [
+                'pagetitle' => $newWebinar->name,
+                'image' => $imgUrl,
+                'date' => $this->ConvertDate($newWebinar->date_start),
+                'id' => $newWebinar->id,
+            ]);
+        }
 
         return $newWebinar;
     }
@@ -130,8 +143,36 @@ class WebinarController extends Controller
             'files' => $this->GetModuleFiles($webinarId, 'webinar'),
             'preview' => $this->GetModulePreview($webinarId, 'webinar'),
             'new_files' => [],
-            'deleted_files' => []
+            'deleted_files' => [],
         ];
+
+        return $result;
+    }
+
+    public function GetWebinar(Request $request, $webinarId)
+    {
+        $webinar = Webinar::where('id', $webinarId)->first();
+
+        if (empty($webinar))
+        {
+            return response()->json([
+                'message' => 'Вебинар не найден'
+            ] , 422);
+        }
+
+        $result = [
+            'id' => $webinar->id,
+            'name' => $webinar->name,
+            'authors' => $webinar->authors,
+            'date_start' => $webinar->date_start,
+            'image' => url('/').'/'.$webinar->image_path,
+        ];
+
+        $response = Http::withOptions([
+            'verify' => false,
+        ])->get(config('modx.api')."/GetWebinarConfig?webinarId=$webinarId");
+
+        $result['modx'] = json_decode($response->body(), true);
 
         return $result;
     }
