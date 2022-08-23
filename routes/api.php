@@ -13,6 +13,9 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\TinkoffController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\StatisticController;
+use App\Http\Controllers\PromocodeController;
+use App\Http\Controllers\ReferralController;
 
 /*
 |--------------------------------------------------------------------------
@@ -70,6 +73,7 @@ Route::middleware('auth:sanctum')->post('/user/all', [UserController::class, 'Ge
 
 
 /*** CourseController ***/
+
 Route::middleware('auth:sanctum')->get('/course/get-by-user', [CourseController::class, 'GetCoursesByUser']);
 Route::middleware('auth:sanctum')->get('/course/{courseId}/get', [CourseController::class, 'GetCourseById']);
 Route::middleware('auth:sanctum')->get('/course/{courseId}/get/all', [CourseController::class, 'GetCourse']);
@@ -140,6 +144,7 @@ Route::middleware('auth:sanctum')->delete('/notification/delete/all', [Notificat
 /******************************/
 
 /*** TicketController ***/
+
 Route::middleware('auth:sanctum')->get('/ticket/get', [TicketController::class, 'GetUserTickets']);
 Route::middleware('auth:sanctum')->get('/ticket/all', [TicketController::class, 'GetTicketsList']);
 Route::middleware('auth:sanctum')->get('/ticket/{ticketId}/chat', [TicketController::class, 'GetTicketChat']);
@@ -160,6 +165,7 @@ Route::middleware('auth:sanctum')->delete('/chat/{type}/{streamId}/message/{mess
 /**********************/
 
 /*** TinkoffController ***/
+
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}', [TinkoffController::class, 'BuyCourse']);
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/free', [TinkoffController::class, 'TakeFreeCourse']);
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/create', [TinkoffController::class, 'CourseOrderCreate']);
@@ -175,3 +181,34 @@ Route::post('/buy/credit/notification', [TinkoffController::class, 'CreditNotifi
 
 /*************************/
 
+/*** StatisticController ***/
+
+Route::get('/statistic/today', [StatisticController::class, 'StatisticToday']);
+Route::get('/statistic/days/{days}', [StatisticController::class, 'StatisticDays']);
+Route::get('/statistic/year', [StatisticController::class, 'StatisticYear']);
+Route::get('/statistic/courses', [StatisticController::class, 'StatisticCourses']);
+
+Route::post('/statistic/course/{courseId}/enter', [StatisticController::class, 'CourseEnter']);
+
+/***************************/
+
+/*** PromocodeController ***/
+
+Route::middleware('auth:sanctum')->get('/promocode/all', [PromocodeController::class, 'GetAllPromocodes']);
+
+Route::middleware('auth:sanctum')->post('/promocode/add', [PromocodeController::class, 'CreatePromocode']);
+Route::middleware('auth:sanctum')->post('/promocode/get', [PromocodeController::class, 'GetPromocode']);
+
+Route::middleware('auth:sanctum')->delete('/promocode/delete/{id}', [PromocodeController::class, 'DeletePromocode']);
+
+/***************************/
+
+/*** ReferralController ***/
+
+Route::middleware('auth:sanctum')->post('/referral/create', [ReferralController::class, 'CreateReferralLink']);
+
+Route::middleware('auth:sanctum')->get('/referral/{type}/get', [ReferralController::class, 'GetReferralLinksByType']);
+
+Route::middleware('auth:sanctum')->delete('/referral/delete/{ref}', [ReferralController::class, 'DeleteReferralLink']);
+
+/**************************/

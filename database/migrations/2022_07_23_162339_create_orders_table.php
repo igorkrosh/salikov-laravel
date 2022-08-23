@@ -24,6 +24,7 @@ class CreateOrdersTable extends Migration
             $table->string('status');
             $table->string('price');
             $table->string('packet')->default('');
+            $table->string('promocode')->default('');
             $table->timestamps();
         });
     }

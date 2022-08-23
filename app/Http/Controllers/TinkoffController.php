@@ -16,6 +16,7 @@ use App\Models\CourseAccess;
 use App\Models\WebinarAccess;
 use App\Models\Webinar;
 use App\Models\Order;
+use App\Models\ReferralLink;
 
 use App\Events\PaymentNotification;
 
@@ -57,8 +58,17 @@ class TinkoffController extends Controller
         $order->price = $request->price;
         $order->object_id = $courseId;
         $order->packet = $packetName;
+        $order->packet = $request->promocode;
 
         $order->save();
+
+        $redId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $redId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->requests = $referralLink->requests + 1;
+        }
 
         $response = Http::withOptions([
             'verify' => false,
@@ -95,6 +105,14 @@ class TinkoffController extends Controller
         $order->packet = $packetName;
 
         $order->save();
+
+        $redId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $redId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->requests = $referralLink->requests + 1;
+        }
 
         $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
 
@@ -136,6 +154,14 @@ class TinkoffController extends Controller
 
         $order->save();
 
+        $redId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $redId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->requests = $referralLink->requests + 1;
+        }
+
         $response = Http::withOptions([
             'verify' => false,
         ])->post('https://securepay.tinkoff.ru/v2/Init', $orderData);
@@ -162,6 +188,14 @@ class TinkoffController extends Controller
         $order->packet = '';
 
         $order->save();
+
+        $redId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $redId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->requests = $referralLink->requests + 1;
+        }
 
         $this->AddAccessWebinar($order->object_id, $order->user_id);
 
@@ -193,6 +227,14 @@ class TinkoffController extends Controller
         {
             $this->AddAccessWebinar($order->object_id, $order->user_id);
         }
+
+        $refId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $refId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->sum = $referralLink->sum + $order->price;
+        }
         
         
         broadcast(new PaymentNotification($order->user_id, $order->status));
@@ -210,6 +252,15 @@ class TinkoffController extends Controller
         $order->status = 'SIGNED';
 
         $order->save();
+
+        $refId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $refId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->sum = $referralLink->sum + $order->price;
+            $referralLink->requests = $referralLink->requests + 1;
+        }
 
         $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
 
@@ -335,6 +386,14 @@ class TinkoffController extends Controller
             'payment' => "subscriber_priority",
         ];
 
+        $refId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $refId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->requests = $referralLink->requests + 1;
+        }
+
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.config('notisend.key')
         ])->withOptions([
@@ -378,6 +437,14 @@ class TinkoffController extends Controller
             'html' => $html,
             'payment' => "subscriber_priority",
         ];
+
+        $refId = $request->session()->get('ref');
+        $referralLink = ReferralLink::where('ref_id', $refId)->first();
+
+        if (!empty($referralLink))
+        {
+            $referralLink->requests = $referralLink->requests + 1;
+        }
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.config('notisend.key')

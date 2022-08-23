@@ -41,7 +41,8 @@ class AuthController extends Controller
             }
 
             return [
-                'token' => Auth::user()->createToken('authentication')->plainTextToken
+                'token' => Auth::user()->createToken('authentication')->plainTextToken,
+                'user' => Auth::user(),
             ];
         }
 
@@ -118,9 +119,11 @@ class AuthController extends Controller
         return ['token' => Auth::user()->createToken('authentication')->plainTextToken];
     }
 
-    public function Logout()
+    public function Logout(Request $request)
     {
         Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
     }
 
     public function Register(Request $request)
