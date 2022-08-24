@@ -16,6 +16,7 @@ class CreateReferralLinksTable extends Migration
         Schema::create('referral_links', function (Blueprint $table) {
             $table->id();
             $table->integer('ref_id');
+            $table->integer('creator');
             $table->string('to');
             $table->integer('count')->default(0);
             $table->string('type');

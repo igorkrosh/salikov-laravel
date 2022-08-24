@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 use App\Models\Promocode;
@@ -15,6 +16,7 @@ class PromocodeController extends Controller
         $promocode = new Promocode();
 
         $promocode->code = $request->code;
+        $promocode->creator = Auth::user()->id;
         $promocode->value = $request->value;
         $promocode->date_start = $this->ConvertDate($request->date_start);
         $promocode->deadline = $this->ConvertDate($request->deadline);
@@ -47,7 +49,15 @@ class PromocodeController extends Controller
 
     public function GetAllPromocodes(Request $request)
     {
-        $promocodes = Promocode::get();
+        if ($request->personal)
+        {
+            $promocodes = Promocode::where('creator', Auth::user()->id)->get();
+        }
+        else 
+        {
+            $promocodes = Promocode::get();
+        }
+        
         $result = [];
 
         foreach($promocodes as $promocode)

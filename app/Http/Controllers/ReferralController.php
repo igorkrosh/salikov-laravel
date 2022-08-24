@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 use App\Models\ReferralLink;
 
@@ -15,6 +16,7 @@ class ReferralController extends Controller
         $ref = new ReferralLink();
 
         $ref->ref_id = $refId;
+        $ref->creator = Auth::user()->id;
         $ref->type = $request->type;
         $ref->to = $request->to;
 
@@ -30,7 +32,14 @@ class ReferralController extends Controller
 
     public function GetReferralLinksByType(Request $request, $type)
     {
-        $links = ReferralLink::where('type', $type)->get();
+        if ($request->personal)
+        {
+            $links = ReferralLink::where('type', $type)->where('creator', Auth::user()->id)->get();
+        }
+        else 
+        {
+            $links = ReferralLink::where('type', $type)->get();
+        }
         $result = [];
 
         foreach ($links as $link)

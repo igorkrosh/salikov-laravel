@@ -3,18 +3,48 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
 use App\Models\Order;
 use App\Models\Promocode;
 use App\Models\Course;
+use App\Models\Webinar;
+use App\Models\JuricticRequest;
 
 class StatisticController extends Controller
 {
     public function StatisticToday(Request $request)
     {
-        $orders = Order::whereDate('created_at', date('Y-m-d'))->get();
+        if ($request->personal)
+        {
+            $courses = Course::where('creator', Auth::user()->id)->get();
+            $ids = [];
+    
+            foreach ($courses as $course)
+            {
+                $ids[] = $course->id;
+            }
+    
+            $ordersCourse = Order::where([['type', 'course'], ['status', 'CONFIRMED']])->whereDate('created_at', date('Y-m-d'))->whereIn('object_id', $ids)->get();
+
+            $webinars = Webinar::where('creator', Auth::user()->id)->get();
+            $ids = [];
+    
+            foreach ($webinars as $webinar)
+            {
+                $ids[] = $webinar->id;
+            }
+
+            $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereDate('created_at', date('Y-m-d'))->whereIn('object_id', $ids)->get();
+
+            $orders = $ordersCourse->concat($ordersWebinar);
+        }
+        else 
+        {
+            $orders = Order::where('status', 'CONFIRMED')->whereDate('created_at', date('Y-m-d'))->get();
+        }
 
         $stats = [];
 
@@ -61,7 +91,36 @@ class StatisticController extends Controller
         {
             $formatDate = Carbon::parse($date)->translatedFormat('M d');
             $formatDate = mb_convert_case($formatDate, MB_CASE_TITLE);
-            $orders = Order::whereDate('created_at', $date)->get();
+
+            if ($request->personal)
+            {
+                $courses = Course::where('creator', Auth::user()->id)->get();
+                $ids = [];
+        
+                foreach ($courses as $course)
+                {
+                    $ids[] = $course->id;
+                }
+        
+                $ordersCourse = Order::where([['type', 'course'], ['status', 'CONFIRMED']])->whereDate('created_at', $date)->whereIn('object_id', $ids)->get();
+
+                $webinars = Webinar::where('creator', Auth::user()->id)->get();
+                $ids = [];
+        
+                foreach ($webinars as $webinar)
+                {
+                    $ids[] = $webinar->id;
+                }
+
+                $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereDate('created_at', $date)->whereIn('object_id', $ids)->get();
+
+                $orders = $ordersCourse->concat($ordersWebinar);
+            }
+            else 
+            {
+                $orders = Order::where('status', 'CONFIRMED')->whereDate('created_at', $date)->get();
+            }
+
             $price = 0;
 
             foreach ($orders as $order)
@@ -82,7 +141,35 @@ class StatisticController extends Controller
         
         foreach(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'] as $month)
         {
-            $orders = Order::whereYear('created_at', $today->year)->whereMonth('created_at', $month)->get();
+            if ($request->personal)
+            {
+                $courses = Course::where('creator', Auth::user()->id)->get();
+                $ids = [];
+        
+                foreach ($courses as $course)
+                {
+                    $ids[] = $course->id;
+                }
+        
+                $ordersCourse = Order::where([['type', 'course'], ['status', 'CONFIRMED']])->whereYear('created_at', $today->year)->whereMonth('created_at', $month)->whereIn('object_id', $ids)->get();
+
+                $webinars = Webinar::where('creator', Auth::user()->id)->get();
+                $ids = [];
+        
+                foreach ($webinars as $webinar)
+                {
+                    $ids[] = $webinar->id;
+                }
+
+                $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereYear('created_at', $today->year)->whereMonth('created_at', $month)->whereIn('object_id', $ids)->get();
+
+                $orders = $ordersCourse->concat($ordersWebinar);
+            }
+            else 
+            {
+                $orders = Order::where('status', 'CONFIRMED')->whereYear('created_at', $today->year)->whereMonth('created_at', $month)->get();
+            }
+
             $price = 0;
 
             foreach ($orders as $order)
@@ -100,12 +187,19 @@ class StatisticController extends Controller
 
     public function StatisticCourses(Request $request)
     {
-        $courses = Course::get();
+        if ($request->personal)
+        {
+            $courses = Course::where('creator', Auth::user()->id)->get();
+        }
+        else 
+        {
+            $courses = Course::get();
+        }
         $result = [];
 
         foreach($courses as $course)
         {
-            $orders = Order::where([['object_id', $course->id], ['type', 'course']])->get();
+            $orders = Order::where([['object_id', $course->id], ['type', 'course']. ['status', 'CONFIRMED']])->get();
             $sum = 0;
 
             foreach($orders as $order)
@@ -130,5 +224,60 @@ class StatisticController extends Controller
         $course->count += 1;
 
         $course->save();
+    }
+
+    public function StatisticNumbers(Request $request)
+    {
+        if ($request->personal)
+        {
+            $courses = Course::where('creator', Auth::user()->id)->get();
+            $ids = [];
+    
+            foreach ($courses as $course)
+            {
+                $ids[] = $course->id;
+            }
+    
+            $ordersCourse = Order::where([['type', 'course'], ['status', 'CONFIRMED']])->whereIn('object_id', $ids)->get();
+            $juricticCourse = JuricticRequest::where('type', 'course')->whereIn('object_id', $ids)->get();
+
+            $webinars = Webinar::where('creator', Auth::user()->id)->get();
+            $ids = [];
+    
+            foreach ($webinars as $webinar)
+            {
+                $ids[] = $webinar->id;
+            }
+
+            $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereIn('object_id', $ids)->get();
+            $juricticWebinar = JuricticRequest::where('type', 'webinar')->whereIn('object_id', $ids)->get();
+
+            $orders = $ordersCourse->concat($ordersWebinar);
+            $juricticRequests = $juricticCourse->concat($juricticWebinar);
+        }
+        else 
+        {
+            $orders = Order::get();
+            $juricticRequests = JuricticRequest::get();
+        }
+
+        $orders = Order::where('status', 'CONFIRMED')->get();
+        $juricticRequests = JuricticRequest::get();
+
+        $sum = 0;
+
+        foreach ($orders as $order)
+        {
+            $sum += $order->price;
+        }
+
+        $count = count($orders);
+        $juricticCount = count($juricticRequests);
+
+        return [
+            'sum' => $sum,
+            'count' => $count,
+            'jurictic' => $juricticCount
+        ];
     }
 }

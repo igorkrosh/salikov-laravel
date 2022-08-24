@@ -17,6 +17,7 @@ use App\Models\WebinarAccess;
 use App\Models\Webinar;
 use App\Models\Order;
 use App\Models\ReferralLink;
+use App\Models\JuricticRequest;
 
 use App\Events\PaymentNotification;
 
@@ -399,6 +400,14 @@ class TinkoffController extends Controller
         ])->withOptions([
             'verify' => false,
         ])->post('https://api.notisend.ru/v1/email/messages', $email);
+
+        $juricticRequest = new JuricticRequest();
+
+        $juricticRequest->user_id = Auth::user()->id;
+        $juricticRequest->type = 'course';
+        $juricticRequest->object_id = $courseId;
+
+        $juricticRequest->save();
     }
 
     public function SendWebinarJuricticNotification(Request $request, $webinarId)
@@ -451,6 +460,14 @@ class TinkoffController extends Controller
         ])->withOptions([
             'verify' => false,
         ])->post('https://api.notisend.ru/v1/email/messages', $email);
+
+        $juricticRequest = new JuricticRequest();
+
+        $juricticRequest->user_id = Auth::user()->id;
+        $juricticRequest->type = 'webinar';
+        $juricticRequest->object_id = $webinarId;
+
+        $juricticRequest->save();
     }
 
     private function MakeHash($orderData)

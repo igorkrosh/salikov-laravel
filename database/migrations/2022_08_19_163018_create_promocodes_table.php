@@ -15,6 +15,7 @@ class CreatePromocodesTable extends Migration
     {
         Schema::create('promocodes', function (Blueprint $table) {
             $table->id();
+            $table->integer('creator');
             $table->string('code');
             $table->string('value');
             $table->date('date_start');

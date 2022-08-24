@@ -36,6 +36,8 @@ class CourseController extends Controller
         $course->image_path = '';
         $course->kinescope_id = '';
         $course->hours = $config->hours;
+        $course->category = $config->category;
+        $course->status = $config->status;
 
         $course->save();
 
@@ -222,6 +224,7 @@ class CourseController extends Controller
                 'lectors' => $course->authors,
                 'title' => $course->name,
                 'type' => 'Курс',
+                'status' => $course->status,
             ];
         }
 
@@ -368,7 +371,9 @@ class CourseController extends Controller
             'hours' => $course->hours,
             'blocks' => [],
             'lessons' => count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']),
-            'buy_at' => empty($blockAccess) ? '' : $blockAccess->created_at
+            'buy_at' => empty($blockAccess) ? '' : $blockAccess->created_at,
+            'category' => $course->category,
+            'status' => $course->status,
         ];
 
         $blocks = CourseBlock::where('course_id', $course->id)->orderBy('index')->get();
@@ -495,6 +500,8 @@ class CourseController extends Controller
         $course->date_start = $this->ConvertDate($config->date_start);
         $course->duration = $config->duration;
         $course->name = $config->name;
+        $course->category = $config->category;
+        $course->status = $config->status;
 
         if (!empty($config->image))
         {
@@ -906,6 +913,33 @@ class CourseController extends Controller
         }
 
         return $result;
+    }
+
+    public function GetCoursesByStatus(Request $request, $status)
+    {
+        $result = [];
+
+        foreach(Course::where('status', $status)->get() as $course)
+        {
+            $result[] = [
+                'id' => $course->id,
+                'date' => $course->date_start,
+                'duration' => $course->duration,
+                'title' => $course->name,
+                'lectors' => $course->authors,
+                'type' => 'Курс',
+                'image' => url('/').'/'.$course->image_path,
+            ];
+        }
+
+        return $result;
+    }
+
+    public function CourseCaterogies(Request $request)
+    {
+        $response = Http::get(config('modx.api').'/CourseCategoriesList');
+
+        return $response;
     }
 
     public function GetRecomendations(Request $request)

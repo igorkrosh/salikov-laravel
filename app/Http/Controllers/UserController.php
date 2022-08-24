@@ -250,9 +250,12 @@ class UserController extends Controller
         $useAdmin = $request->filter['admin'];
         $useEducator = $request->filter['educator'];
         $useUser = $request->filter['user'];
+        $useAuthor = $request->filter['author'];
         $useName = !empty($request->filter['name']);
+        $useCategory = !empty($request->filter['category']);
+        $useCourse = !empty($request->filter['course']);
 
-        $users = $users->where(function ($query) use ($useAdmin, $useEducator, $useUser) {
+        $users = $users->where(function ($query) use ($useAdmin, $useEducator, $useUser, $useAuthor) {
             if ($useAdmin)
             {
                 $query->orWhere('role', 'admin');
@@ -267,6 +270,11 @@ class UserController extends Controller
             {
                 $query->orWhere('role', 'user');
             }
+
+            if ($useAuthor)
+            {
+                $query->orWhere('role', 'author');
+            }
         });
 
         if ($useName)
@@ -274,6 +282,56 @@ class UserController extends Controller
             $name = $request->filter['name'];
             $users->where(function ($query) use ($name) {
                 $query->where('name', 'like', "%$name%")->orWhere('last_name', 'like', "%$name%");
+            });
+        }
+
+        if ($useCategory)
+        {
+            $category = $request->filter['category'];
+
+            $courses = Course::where('category', $category)->get();
+            $ids = [];
+            
+            foreach ($courses as $course)
+            {
+                $ids[] = $course->id;
+            }
+
+            $blockAccess = BlockAccess::whereIn('course_id', $ids)->get()->unique('user_id');
+            $ids = [];
+            
+            foreach ($blockAccess as $access)
+            {
+                $ids[] = $access->user_id;
+            }
+
+            $users->where(function ($query) use ($ids) {
+                $query->whereIn('id', $ids);
+            });
+        }
+
+        if ($useCourse)
+        {
+            $courseName = $request->filter['course'];
+
+            $courses = DB::table('courses')->where('name', 'like', "%$courseName%")->get();
+            $ids = [];
+            
+            foreach ($courses as $course)
+            {
+                $ids[] = $course->id;
+            }
+
+            $blockAccess = BlockAccess::whereIn('course_id', $ids)->get()->unique('user_id');
+            $ids = [];
+            
+            foreach ($blockAccess as $access)
+            {
+                $ids[] = $access->user_id;
+            }
+
+            $users->where(function ($query) use ($ids) {
+                $query->whereIn('id', $ids);
             });
         }
         return $users->get();
