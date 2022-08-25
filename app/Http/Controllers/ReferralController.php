@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Cookie;
 
 use App\Models\ReferralLink;
 
@@ -68,8 +69,22 @@ class ReferralController extends Controller
         $referralLink->count = $referralLink->count + 1;
         $referralLink->save();
 
-        $request->session()->push('ref', $referralLink->ref_id);
+        Cookie::queue('ref_id', $referralLink->ref_id, 60);
 
         return redirect($referralLink->to);
+    }
+
+    public function InviteUser(Request $request, $userId)
+    {
+        //$request->session()->put('invite', $userId);
+        Cookie::queue('invite_user', $userId, 60);
+
+        return redirect(config('app.reg'));
+    }
+
+    public function Session(Request $request)
+    {
+        //return $request->session()->all();
+        return $request->cookie('invite_user');
     }
 }

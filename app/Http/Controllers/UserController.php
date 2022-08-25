@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Crypt;
 
 use App\Models\User;
 use App\Models\JuricticUser;
@@ -108,8 +109,8 @@ class UserController extends Controller
             'user' => [
                 'id' => $user->id,
                 'role' => $user->role,
-                'points' => $user->points,
-                'allPoints' => $user->active_points,
+                'points' => $user->active_points,
+                'allPoints' => $user->points,
                 'invites' => $user->invites,
                 'name' => $user->name,
                 'lastName' => $user->last_name,
@@ -145,6 +146,16 @@ class UserController extends Controller
         ];
 
         return $result;
+    }
+
+    public function ReferralData(Request $request)
+    {
+        return [
+            'invite_link' => config('app.ref')."/invite/".Auth::user()->id,
+            'count' => count(User::where('invite_user', Auth::user()->id)->get()),
+            'all_points' => Auth::user()->points,
+            'points' => Auth::user()->active_points,
+        ];
     }
 
     public function EditUser(Request $request)

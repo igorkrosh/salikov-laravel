@@ -16,6 +16,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StatisticController;
 use App\Http\Controllers\PromocodeController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\SettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +63,7 @@ Route::middleware('auth:sanctum')->get('/user/calendar', [UserController::class,
 Route::middleware('auth:sanctum')->get('/user/notifications', [UserController::class, 'GetUserNotifications']);
 Route::middleware('auth:sanctum')->get('/user/progress', [UserController::class, 'GetUserProgress']);
 Route::middleware('auth:sanctum')->get('/user/{userId}/profile', [UserController::class, 'GetProfileByUserId']);
+Route::middleware('auth:sanctum')->get('/user/referral', [UserController::class, 'ReferralData']);
 
 
 Route::middleware('auth:sanctum')->post('/user/edit', [UserController::class, 'EditUser']);
@@ -222,5 +224,13 @@ Route::middleware('auth:sanctum')->get('/referral/{type}/get', [ReferralControll
 Route::middleware('auth:sanctum')->post('/referral/{type}/get', [ReferralController::class, 'GetReferralLinksByType']);
 
 Route::middleware('auth:sanctum')->delete('/referral/delete/{ref}', [ReferralController::class, 'DeleteReferralLink']);
+
+/**************************/
+
+/*** SettingsController ***/
+
+Route::middleware('auth:sanctum')->get('/settings/all', [SettingsController::class, 'GetSettings']);
+
+Route::middleware('auth:sanctum')->post('/settings/update', [SettingsController::class, 'UpdateSettings']);
 
 /**************************/

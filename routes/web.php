@@ -21,3 +21,5 @@ Route::get('/', function () {
 });
 
 Route::get('/link/{ref}', [ReferralController::class, 'RedirectReferralLink']);
+Route::get('/invite/{userId}', [ReferralController::class, 'InviteUser']);
+Route::get('/session', [ReferralController::class, 'Session']);

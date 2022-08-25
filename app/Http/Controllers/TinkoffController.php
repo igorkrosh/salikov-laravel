@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use DateTime;
 use DateTimeZone;
 
+use App\Models\User;
 use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\BlockAccess;
@@ -18,6 +19,7 @@ use App\Models\Webinar;
 use App\Models\Order;
 use App\Models\ReferralLink;
 use App\Models\JuricticRequest;
+use App\Models\Setting;
 
 use App\Events\PaymentNotification;
 
@@ -63,7 +65,7 @@ class TinkoffController extends Controller
 
         $order->save();
 
-        $redId = $request->session()->get('ref');
+        $redId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $redId)->first();
 
         if (!empty($referralLink))
@@ -107,7 +109,7 @@ class TinkoffController extends Controller
 
         $order->save();
 
-        $redId = $request->session()->get('ref');
+        $redId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $redId)->first();
 
         if (!empty($referralLink))
@@ -155,7 +157,7 @@ class TinkoffController extends Controller
 
         $order->save();
 
-        $redId = $request->session()->get('ref');
+        $redId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $redId)->first();
 
         if (!empty($referralLink))
@@ -190,7 +192,7 @@ class TinkoffController extends Controller
 
         $order->save();
 
-        $redId = $request->session()->get('ref');
+        $redId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $redId)->first();
 
         if (!empty($referralLink))
@@ -229,7 +231,7 @@ class TinkoffController extends Controller
             $this->AddAccessWebinar($order->object_id, $order->user_id);
         }
 
-        $refId = $request->session()->get('ref');
+        $refId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $refId)->first();
 
         if (!empty($referralLink))
@@ -237,6 +239,7 @@ class TinkoffController extends Controller
             $referralLink->sum = $referralLink->sum + $order->price;
         }
         
+        $this->ChechIntive($order);
         
         broadcast(new PaymentNotification($order->user_id, $order->status));
     }
@@ -254,7 +257,7 @@ class TinkoffController extends Controller
 
         $order->save();
 
-        $refId = $request->session()->get('ref');
+        $refId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $refId)->first();
 
         if (!empty($referralLink))
@@ -262,6 +265,8 @@ class TinkoffController extends Controller
             $referralLink->sum = $referralLink->sum + $order->price;
             $referralLink->requests = $referralLink->requests + 1;
         }
+
+        $this->ChechIntive($order);
 
         $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
 
@@ -387,7 +392,7 @@ class TinkoffController extends Controller
             'payment' => "subscriber_priority",
         ];
 
-        $refId = $request->session()->get('ref');
+        $refId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $refId)->first();
 
         if (!empty($referralLink))
@@ -447,7 +452,7 @@ class TinkoffController extends Controller
             'payment' => "subscriber_priority",
         ];
 
-        $refId = $request->session()->get('ref');
+        $refId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $refId)->first();
 
         if (!empty($referralLink))
@@ -470,24 +475,14 @@ class TinkoffController extends Controller
         $juricticRequest->save();
     }
 
-    private function MakeHash($orderData)
+    private function ChechIntive($order)
     {
-        $orderData['Password'] = config('tinkoff.terminal_password');
-        ksort($orderData);
-        $hashString = '';
-
-        foreach($orderData as $key => $value)
+        if (Auth::user()->invite_user != 0)
         {
-            if ($key == 'Shops' || $key == 'Receipt' || $key == 'DATA')
-            {
-                continue;
-            }
-
-            $hashString .= $value;
+            $inviteUser = User::where('id', Auth::user()->invite_user)->first();
+            $inviteUser->active_points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
+            $inviteUser->points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
         }
-
-        return hash('sha256', $hashString);
-
     }
     
 }

@@ -149,6 +149,11 @@ class AuthController extends Controller
         $user->password = Hash::make($request->password);
         $user->jurictic = empty($request->jurictic) ? false : $request->jurictic;
 
+        if (!empty($request->cookie('invite_user')))
+        {
+            $user->invite_user = $request->cookie('invite_user');
+        }
+
         $user->save();
 
         if ($request->jurictic)
