@@ -23,12 +23,14 @@ class ClientNotification implements ShouldBroadcast
     public $userId;
     public $title;
     public $text;
+    public $link;
 
-    public function __construct($userId, $title, $text)
+    public function __construct($userId, $title, $text, $link = '')
     {
         $this->userId = $userId;
         $this->title = $title;
         $this->text = $text;
+        $this->link = $link;
     }
 
     /**

@@ -25,7 +25,6 @@ class CourseController extends Controller
         $course = new Course();
         $config = json_decode($request->input('course'));
 
-        $date_start = $config->date_start;
         $date_start = $this->ConvertDate($config->date_start);
 
         $course->name = $config->name;
@@ -57,14 +56,10 @@ class CourseController extends Controller
         {
             $newBlock = new CourseBlock();
 
-            $date_start = $block->date;
-            $date_start = strtotime($date_start);
-            $date_start = date('Y-m-d',$date_start);
-
             $newBlock->course_id = $course->id;
             $newBlock->index = $index;
             $newBlock->title = $block->title;
-            $newBlock->date_start = $date_start;
+            $newBlock->date_start = $this->ConvertDate($block->date);
 
             $newBlock->save();
 
@@ -762,7 +757,7 @@ class CourseController extends Controller
         {
             foreach($modules[$type] as $module)
             {
-                $files = File::where([['module_id', $moduleId], ['type', $type]])->get();
+                $files = File::where([['module_id', $module->id], ['type', $type]])->get();
     
                 foreach($files as $file)
                 {
@@ -937,9 +932,25 @@ class CourseController extends Controller
 
     public function CourseCaterogies(Request $request)
     {
-        $response = Http::get(config('modx.api').'/CourseCategoriesList');
+        return Http::get(config('modx.api').'/CourseCategoriesList')->object();
+    }
 
-        return $response;
+    public function CourseFilter(Request $request)
+    {
+        $categories = Http::get(config('modx.api').'/CourseCategoriesList')->object();
+        $courses = Course::get();
+        
+        $filterCourses = [];
+
+        foreach ($courses as $course)
+        {
+            $filterCourses[] = $course->name;
+        }
+
+        return [
+            'categories' => $categories,
+            'courses' => $filterCourses
+        ];
     }
 
     public function GetRecomendations(Request $request)

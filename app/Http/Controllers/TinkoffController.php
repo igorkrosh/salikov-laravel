@@ -34,11 +34,29 @@ class TinkoffController extends Controller
             'packet_name' => ['required']
         ]);
 
+        $orderPrice = $request->use_points;
+
+        if ($request->use_points)
+        {
+            $newPrice = $this->UsePoints($request->price);
+
+            if ($newPrice <= 0)
+            {
+                $this->TakeFreeCourse($request, $courseId);
+
+                return;
+            }
+            else 
+            {
+                $orderPrice = $newPrice;
+            }
+        }
+
         $courseName = Course::where('id', $courseId)->first()->name;
         $packetName = $request->packet_name;
         $userId = Auth::user()->id;
 
-        $amount = $request->price * 100;
+        $amount = $orderPrice * 100;
         $desc = "Покупка доступа к курсу \"$courseName\" ($packetName)";
         $orderId = time();
 
@@ -58,10 +76,11 @@ class TinkoffController extends Controller
         $order->days = $request->access_days;
         $order->access = $request->access;
         $order->status = 'INIT';
-        $order->price = $request->price;
+        $order->price = $orderPrice;
         $order->object_id = $courseId;
         $order->packet = $packetName;
-        $order->packet = $request->promocode;
+        $order->promocode = empty($request->promocode) ? '' : $request->promocode;
+        $order->points = empty($request->use_points) ? '' : Auth::user()->active_points;
 
         $order->save();
 
@@ -78,7 +97,7 @@ class TinkoffController extends Controller
         ])->post('https://securepay.tinkoff.ru/v2/Init', $orderData);
 
         $data = $response->object();
-        $data->hash = $this->MakeHash($orderData);
+        //$data->hash = $this->MakeHash($orderData);
 
         return $data;
     }
@@ -104,7 +123,8 @@ class TinkoffController extends Controller
         $order->access = $request->access;
         $order->status = 'CONFIRMED';
         $order->price = $request->price;
-        $order->course_id = $courseId;
+        $order->object_id = $courseId;
+        $order->type = 'course';
         $order->packet = $packetName;
 
         $order->save();
@@ -117,7 +137,7 @@ class TinkoffController extends Controller
             $referralLink->requests = $referralLink->requests + 1;
         }
 
-        $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
+        $this->AddAccessCourse($order->object_id, $order->user_id, $order->access, $order->days);
 
         broadcast(new PaymentNotification($order->user_id, $order->status));
     }
@@ -231,6 +251,15 @@ class TinkoffController extends Controller
             $this->AddAccessWebinar($order->object_id, $order->user_id);
         }
 
+        if (!empty($order->points))
+        {
+            $user = User::where('id', $order->user_id)->first();
+
+            $user->active_points -= $order->points;
+
+            $user->save();
+        }
+
         $refId = $request->cookie('ref_id');
         $referralLink = ReferralLink::where('ref_id', $refId)->first();
 
@@ -268,7 +297,7 @@ class TinkoffController extends Controller
 
         $this->ChechIntive($order);
 
-        $this->AddAccess($order->course_id, $order->user_id, $order->access, $order->days);
+        $this->AddAccessCourse($order->object_id, $order->user_id, $order->access, $order->days);
 
         broadcast(new PaymentNotification($order->user_id, 'CONFIRMED'));
     }
@@ -483,6 +512,29 @@ class TinkoffController extends Controller
             $inviteUser->active_points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
             $inviteUser->points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
         }
+    }
+
+    private function UsePoints($price)
+    {
+        $user = User::where('id', Auth::user()->id)->first();
+
+        $residue = $price - $user->active_points;
+        $newPrice = $price;
+
+        if ($residue > 0)
+        {
+            //$user->active_points = 0;
+            $newPrice = $residue;
+        }
+        else 
+        {
+            $user->active_points -= $price;
+            $newPrice = 0;
+        }
+
+        $user->save();
+
+        return $newPrice;
     }
     
 }

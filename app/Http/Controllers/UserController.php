@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Crypt;
 use App\Models\User;
 use App\Models\JuricticUser;
 use App\Models\Course;
+use App\Models\CourseAccess;
 use App\Models\CourseBlock;
 use App\Models\Webinar;
 use App\Models\BlockAccess;
@@ -253,7 +254,10 @@ class UserController extends Controller
         
         if (empty($request->filter))
         {
-            return $users;
+            return [
+                'users' => $users,
+                'count' => count($users)
+            ];
         }
 
         $users = DB::table('users');
@@ -325,7 +329,7 @@ class UserController extends Controller
         {
             $courseName = $request->filter['course'];
 
-            $courses = DB::table('courses')->where('name', 'like', "%$courseName%")->get();
+            $courses = DB::table('courses')->where('name', "$courseName")->get();
             $ids = [];
             
             foreach ($courses as $course)
@@ -333,7 +337,7 @@ class UserController extends Controller
                 $ids[] = $course->id;
             }
 
-            $blockAccess = BlockAccess::whereIn('course_id', $ids)->get()->unique('user_id');
+            $blockAccess = CourseAccess::whereIn('course_id', $ids)->get()->unique('user_id');
             $ids = [];
             
             foreach ($blockAccess as $access)
@@ -345,7 +349,13 @@ class UserController extends Controller
                 $query->whereIn('id', $ids);
             });
         }
-        return $users->get();
+
+        $users = $users->get();
+
+        return [
+            'users' => $users,
+            'count' => count($users)
+        ];
     }
 
     public function GetCalendar(Request $request)

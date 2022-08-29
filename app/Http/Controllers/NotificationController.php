@@ -16,17 +16,18 @@ class NotificationController extends Controller
         return Notification::where('user_id', Auth::user()->id)->get();
     }
 
-    public function CreateNotification($userId, $title, $text)
+    public function CreateNotification($userId, $title, $text, $link = '')
     {
         $notification = new Notification();
 
         $notification->user_id = $userId;
         $notification->title = $title;
         $notification->text = $text;
+        $notification->link = $link;
 
         $notification->save();
 
-        broadcast(new ClientNotification($notification->user_id, $notification->title, $notification->text));
+        broadcast(new ClientNotification($notification->user_id, $notification->title, $notification->text, $notification->link));
     }
 
     public function DeleteNotification(Request $request, $notificationId)

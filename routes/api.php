@@ -86,6 +86,7 @@ Route::middleware('auth:sanctum')->get('/course/all', [CourseController::class, 
 Route::middleware('auth:sanctum')->get('/course/status/{status}', [CourseController::class, 'GetCoursesByStatus']);
 Route::middleware('auth:sanctum')->get('/course/recomendations', [CourseController::class, 'GetRecomendations']);
 Route::middleware('auth:sanctum')->get('/course/categories', [CourseController::class, 'CourseCaterogies']);
+Route::middleware('auth:sanctum')->get('/course/filter', [CourseController::class, 'CourseFilter']);
 
 Route::middleware('auth:sanctum')->post('/course/create', [CourseController::class, 'CreateCourse']);
 Route::middleware('auth:sanctum')->post('/course/{courseId}/edit', [CourseController::class, 'EditCourse']);
@@ -155,6 +156,9 @@ Route::middleware('auth:sanctum')->get('/ticket/{ticketId}/chat', [TicketControl
 
 Route::middleware('auth:sanctum')->post('/ticket/create', [TicketController::class, 'CreateTicket']);
 Route::middleware('auth:sanctum')->post('/ticket/{ticketId}/chat/message', [TicketController::class, 'AddMessageToChat']);
+Route::middleware('auth:sanctum')->post('/ticket/{ticketId}/status', [TicketController::class, 'TicketStatus']);
+
+Route::middleware('auth:sanctum')->delete('/ticket/message/{messageId}', [TicketController::class, 'DeleteMessage']);
 
 /************************/
 

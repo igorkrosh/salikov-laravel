@@ -50,6 +50,7 @@ class TicketController extends Controller
                 'title' => $ticket->title,
                 'text' => $ticket->text,
                 'data' => $ticket->created_at,
+                'status' => $ticket->status,
             ];
         }
 
@@ -68,6 +69,7 @@ class TicketController extends Controller
                 'title' => $ticket->title,
                 'text' => $ticket->text,
                 'data' => $ticket->created_at,
+                'status' => $ticket->status,
             ];
         }
 
@@ -88,7 +90,8 @@ class TicketController extends Controller
             'text' => $ticket->text,
             'title' => $ticket->title,
             'date' => $ticket->created_at,
-            'file' => empty($ticket->file_path) ? '' : url('/').'/'.$ticket->file_path
+            'file' => empty($ticket->file_path) ? '' : url('/').'/'.$ticket->file_path,
+            'status' => $ticket->status,
         ];
 
         $messages = TicketMessage::where('ticket_id', $ticketId)->get();
@@ -98,6 +101,7 @@ class TicketController extends Controller
             $user = User::where('id', $message->user_id)->first();
 
             $response['messages'][] = [
+                'id' => $message->id,
                 'user_id' => $message->user_id,
                 'username' => $user->name.' '.$user->last_name,
                 'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path,
@@ -132,14 +136,43 @@ class TicketController extends Controller
             $message->save();
         }
 
+        $chat = $ticket->title;
+        $link = str_replace('{id}', $ticket->id, config('app.ticket'));
+
         if ($ticket->user_id != $message->user_id)
         {
-            $chat = $ticket->title;
-            app(NotificationController::class)->CreateNotification($ticket->user_id, 'Вы получили новый ответ', "Новый ответ на запрос \"$chat\"");
+            app(NotificationController::class)->CreateNotification($ticket->user_id, 'Вы получили новый ответ', "Новый ответ на запрос \"$chat\"", $link);
+        }
+
+        $ticketUsers = TicketMessage::where('ticket_id', $ticket->id)->get()->unique('user_id');
+
+        foreach ($ticketUsers as $ticketUser)
+        {
+            if ($message->user_id != $ticketUser->user_id)
+            {
+                app(NotificationController::class)->CreateNotification($ticketUser->user_id, 'Вы получили новый ответ', "Новый ответ на запрос \"$chat\"", $link);
+            }
         }
 
         broadcast(new ChatUpdate($ticket->id));
 
         return $message;
+    }
+
+    public function DeleteMessage(Request $request, $messageId)
+    {
+        $ticketId = TicketMessage::where('id', $messageId)->first()->ticket_id;
+        TicketMessage::where('id', $messageId)->delete();
+
+        broadcast(new ChatUpdate($ticketId));
+    }
+
+    public function TicketStatus(Request $request, $ticketId)
+    {
+        $ticket = Ticket::where('id', $ticketId)->first();
+
+        $ticket->status = $request->status;
+
+        $ticket->save();
     }
 }

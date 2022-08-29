@@ -55,7 +55,8 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
     'nuxt' => env('NUXT_URL', 'http://localhost'),
     'ref' => env('REF_URL', 'http://localhost'),
-    'reg' => env('REG_URL', 'http://localhost'),
+    'reg' => env('REG_URL', '/register'),
+    'ticket' => env('TICKET_URL', '/callback/ticket/{id}'),
 
     'asset_url' => env('ASSET_URL', null),
 
