@@ -966,7 +966,8 @@ class CourseController extends Controller
                 'title' => $course->name,
                 'lectors' => $course->authors,
                 'type' => 'Курс',
-                'image' => url('/').'/'.$course->image_path
+                'image' => url('/').'/'.$course->image_path,
+                'link' => config('modx.api').'/CourseRedirect?id='.$course->id
             ];
         }
 

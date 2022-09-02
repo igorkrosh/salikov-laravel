@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Crypt;
+use Carbon\Carbon;
 
 use App\Models\User;
 use App\Models\JuricticUser;
@@ -52,7 +53,7 @@ class UserController extends Controller
                     'course_id' => $stream->id,
                     'type' => 'stream',
                     'title' => $stream->title,
-                    'date' => $stream->date_start,
+                    'date' => Carbon::parse($stream->date_start)->translatedFormat('d.m.Y H:m'),
                     'lectors' => $stream->authors,
                 ];
             }
@@ -74,11 +75,16 @@ class UserController extends Controller
         {
             $webinar = Webinar::where('id', $webinarAccess->webinar_id)->first();
 
+            if (empty($webinar))
+            {
+                continue;
+            }
+
             $webinars[] = [
                 'id' => $webinar->id,
                 'type' => 'webinar',
                 'title' => $webinar->name,
-                'date' => $webinar->date_start,
+                'date' => Carbon::parse($webinar->date_start)->translatedFormat('d.m.Y H:i'),
                 'lectors' => $webinar->authors,
                 'image' => url('/').'/'.$webinar->image_path,
             ];
@@ -367,9 +373,9 @@ class UserController extends Controller
 
         foreach ($access as $course)
         {
-            $course = Course::where('id', $course->course_id)->first();
+            $course = Course::where('id', $course->course_id)->get();
 
-            $courses[] = $course;
+            $courses = $courses->concat($course);
         }
 
         $dates = [];
@@ -466,6 +472,12 @@ class UserController extends Controller
         foreach ($access as $item)
         {
             $course = Course::where('id', $item->course_id)->first();
+
+            if (empty($course))
+            {
+                continue;
+            }
+
             $modules = $this->GetModules($course->id);
 
             $count = count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']);

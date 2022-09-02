@@ -34,7 +34,7 @@ class TinkoffController extends Controller
             'packet_name' => ['required']
         ]);
 
-        $orderPrice = $request->use_points;
+        $orderPrice = $request->price;
 
         if ($request->use_points)
         {
@@ -80,7 +80,7 @@ class TinkoffController extends Controller
         $order->object_id = $courseId;
         $order->packet = $packetName;
         $order->promocode = empty($request->promocode) ? '' : $request->promocode;
-        $order->points = empty($request->use_points) ? '' : Auth::user()->active_points;
+        $order->points = empty($request->use_points) ? 0 : Auth::user()->active_points;
 
         $order->save();
 
@@ -162,6 +162,15 @@ class TinkoffController extends Controller
             'OrderId' => $orderId,
             'NotificationURL' => url('/')."/api/buy/order/notification",
         ];
+
+        $access = WebinarAccess::where([['user_id', $userId], ['webinar_id', $webinarId]])->first();
+
+        if (!empty($access))
+        {
+            return response()->json([
+                'message' => 'У вас уже есть доступ к этому вебинару'
+            ] , 422);
+        }
 
         $order = new Order();
 
@@ -348,6 +357,13 @@ class TinkoffController extends Controller
 
     public function AddAccessWebinar($webinarId, $userId)
     {
+        $access = WebinarAccess::where([['user_id', $userId], ['webinar_id', $webinarId]])->first();
+
+        if (!empty($access))
+        {
+            return;
+        }
+
         $access = new WebinarAccess();
 
         $access->user_id = $userId;
@@ -504,11 +520,27 @@ class TinkoffController extends Controller
         $juricticRequest->save();
     }
 
+    public function CheckAccessWebinar(Request $request, $webinarId)
+    {
+        $userId = Auth::user()->id;
+        $access = WebinarAccess::where([['user_id', $userId], ['webinar_id', $webinarId]])->first();
+
+        if (empty($access))
+        {
+            return false;
+        }
+        
+        return true;
+    }
+
+
     private function ChechIntive($order)
     {
-        if (Auth::user()->invite_user != 0)
+        $user = User::where('id', $order->user_id)->first();
+
+        if ($user->invite_user != 0)
         {
-            $inviteUser = User::where('id', Auth::user()->invite_user)->first();
+            $inviteUser = User::where('id', $user->invite_user)->first();
             $inviteUser->active_points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
             $inviteUser->points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
         }
@@ -535,6 +567,5 @@ class TinkoffController extends Controller
         $user->save();
 
         return $newPrice;
-    }
-    
+    }    
 }

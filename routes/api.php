@@ -173,6 +173,7 @@ Route::middleware('auth:sanctum')->delete('/chat/{type}/{streamId}/message/{mess
 /**********************/
 
 /*** TinkoffController ***/
+Route::middleware('auth:sanctum')->get('/check/webinar/{webinarId}/access', [TinkoffController::class, 'CheckAccessWebinar']);
 
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}', [TinkoffController::class, 'BuyCourse']);
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}/order/free', [TinkoffController::class, 'TakeFreeCourse']);
