@@ -17,6 +17,7 @@ use App\Http\Controllers\StatisticController;
 use App\Http\Controllers\PromocodeController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\ReviewController;
 
 /*
 |--------------------------------------------------------------------------
@@ -239,3 +240,11 @@ Route::middleware('auth:sanctum')->get('/settings/all', [SettingsController::cla
 Route::middleware('auth:sanctum')->post('/settings/update', [SettingsController::class, 'UpdateSettings']);
 
 /**************************/
+
+/*** ReviewController ***/
+Route::middleware('auth:sanctum')->get('/review/{type}/{objectId}/get', [ReviewController::class, 'GetReview']);
+Route::middleware('auth:sanctum')->get('/review/{type}/all', [ReviewController::class, 'GetAllReviewByType']);
+
+Route::middleware('auth:sanctum')->post('/review/{type}/{objectId}/{method}', [ReviewController::class, 'CreateReview']);
+
+/************************/
