@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Config;
+use Carbon\Carbon;
 
 use App\Models\Course;
 use App\Models\CourseBlock;
@@ -16,6 +17,7 @@ use App\Models\ModuleJob;
 use App\Models\ModuleTest;
 use App\Models\User;
 use App\Models\BlockAccess;
+use App\Models\CourseAccess;
 use App\Models\File;
 
 class CourseController extends Controller
@@ -355,6 +357,8 @@ class CourseController extends Controller
 
         $modules = $this->GetModules($courseId);
         $blockAccess = BlockAccess::where([['course_id', $course->id], ['user_id', Auth::user()->id]])->first();
+        $courseAccess = CourseAccess::where([['course_id', $course->id], ['user_id', Auth::user()->id]])->first();
+        $courseAccess = empty($courseAccess) ? true : !Carbon::parse($courseAccess->deadline)->addDays(1)->isPast();
         
         $result = [
             'id' => $course->id,
@@ -369,6 +373,7 @@ class CourseController extends Controller
             'buy_at' => empty($blockAccess) ? '' : $blockAccess->created_at,
             'category' => $course->category,
             'status' => $course->status,
+            'access' => $courseAccess
         ];
 
         $blocks = CourseBlock::where('course_id', $course->id)->orderBy('index')->get();

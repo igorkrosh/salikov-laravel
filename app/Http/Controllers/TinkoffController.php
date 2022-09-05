@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 use DateTime;
 use DateTimeZone;
@@ -146,6 +147,8 @@ class TinkoffController extends Controller
     {
         $request->validate([
             'price' => ['required'],
+            'access_days' => ['required'],
+            'packet_name' => ['required']
         ]);
 
         $webinarName = Webinar::where('id', $webinarId)->first()->name;
@@ -177,12 +180,12 @@ class TinkoffController extends Controller
         $order->user_id = $userId;
         $order->order_id = $orderId;
         $order->type = 'webinar';
-        $order->days = 0;
+        $order->days = $request->access_days;
         $order->access = 0;
         $order->status = 'INIT';
         $order->price = $request->price;
         $order->object_id = $webinarId;
-        $order->packet = '';
+        $order->packet = $request->packet_name;
 
         $order->save();
 
@@ -212,7 +215,7 @@ class TinkoffController extends Controller
         $order->user_id = $userId;
         $order->order_id = time();
         $order->type = 'webinar';
-        $order->days = 0;
+        $order->days = $request->access_days;
         $order->access = 0;
         $order->status = 'CONFIRMED';
         $order->price = 0;
@@ -229,7 +232,7 @@ class TinkoffController extends Controller
             $referralLink->requests = $referralLink->requests + 1;
         }
 
-        $this->AddAccessWebinar($order->object_id, $order->user_id);
+        $this->AddAccessWebinar($order->object_id, $order->user_id, $request->access_days);
 
         broadcast(new PaymentNotification($order->user_id, $order->status));
     }
@@ -257,7 +260,7 @@ class TinkoffController extends Controller
         
         if ($order->type == 'webinar')
         {
-            $this->AddAccessWebinar($order->object_id, $order->user_id);
+            $this->AddAccessWebinar($order->object_id, $order->user_id, $order->days);
         }
 
         if (!empty($order->points))
@@ -355,9 +358,10 @@ class TinkoffController extends Controller
         $courseAccess->save();
     }
 
-    public function AddAccessWebinar($webinarId, $userId)
+    public function AddAccessWebinar($webinarId, $userId, $days)
     {
         $access = WebinarAccess::where([['user_id', $userId], ['webinar_id', $webinarId]])->first();
+        $webinar = Webinar::where('id', $webinarId)->first();
 
         if (!empty($access))
         {
@@ -368,6 +372,7 @@ class TinkoffController extends Controller
 
         $access->user_id = $userId;
         $access->webinar_id = $webinarId;
+        $access->deadline = Carbon::parse($webinar->date_start)->addDays($days);
 
         $access->save();
     }
@@ -529,8 +534,8 @@ class TinkoffController extends Controller
         {
             return false;
         }
-        
-        return true;
+
+        return !Carbon::parse($access->deadline)->addDays(1)->isPast();        
     }
 
 
