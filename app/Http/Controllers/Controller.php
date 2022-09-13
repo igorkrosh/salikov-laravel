@@ -7,6 +7,7 @@ use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 
 use DateTime;
 use DateTimeZone;
@@ -186,5 +187,25 @@ class Controller extends BaseController
         }
 
         return $result;
+    }
+
+    public function GetKinescopeVideoStatus($link)
+    {
+        $videoId = explode('/', $link);
+        $videoId = end($videoId);
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.config('kinescope.token')
+        ])->withOptions([
+            'verify' => false,
+        ])->get('https://api.kinescope.io/v1/videos/'.$videoId);
+        
+        if (!empty($response['data']['status']))
+        {
+
+           return $response['data']['status'];
+        }
+
+        return 'null';
     }
 }

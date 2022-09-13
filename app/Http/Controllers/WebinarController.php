@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
 
 use App\Models\Webinar;
 use App\Models\Course;
@@ -14,6 +15,7 @@ use App\Models\ModuleStream;
 use App\Models\ModuleVideo;
 use App\Models\ModuleJob;
 use App\Models\ModuleTest;
+use App\Models\WebinarAccess;
 
 class WebinarController extends Controller
 {
@@ -144,6 +146,7 @@ class WebinarController extends Controller
             'preview' => $this->GetModulePreview($webinarId, 'webinar'),
             'new_files' => [],
             'deleted_files' => [],
+            'status' => $this->GetKinescopeVideoStatus($webinar->link)
         ];
 
         return $result;
@@ -196,24 +199,36 @@ class WebinarController extends Controller
 
         foreach ($stream as $item)
         {
+            if (Carbon::parse($item->date_start)->addDays(1)->isPast())
+            {
+                continue;
+            }
+
             $result[] = [
                 'id' => $item->id,
                 'course_id' => $this->GetCourseIdByModule($item->id, 'stream'),
                 'title' => $item->title,
-                'date' => $item->date_start,
+                'date' => Carbon::parse($item->date_start)->translatedFormat('d.m.Y H:i'),
                 'lectors' => $item->authors,
                 'type' => 'stream',
+                'status' => $this->GetKinescopeVideoStatus($item->link)
             ];
         }
 
         foreach($webinars as $item)
         {
+            if (Carbon::parse($item->date_start)->addDays(1)->isPast())
+            {
+                continue;
+            }
+
             $result[] = [
                 'id' => $item->id,
                 'title' => $item->name,
-                'date' => $item->date_start,
+                'date' => Carbon::parse($item->date_start)->translatedFormat('d.m.Y H:i'),
                 'lectors' => $item->authors,
                 'type' => 'webinar',
+                'status' => $this->GetKinescopeVideoStatus($item->link)
             ];
         }
 
@@ -256,5 +271,43 @@ class WebinarController extends Controller
         }
 
         return $result;
+    }
+
+    public function GetCurrentWebinars(Request $request)
+    {
+        $webinars = [];
+
+        foreach (WebinarAccess::where('user_id', Auth::user()->id)->get() as $webinarAccess)
+        {
+            $webinar = Webinar::where('id', $webinarAccess->webinar_id)->first();
+
+            if (empty($webinar))
+            {
+                continue;
+            }
+
+            $webinars[] = [
+                'id' => $webinar->id,
+                'type' => 'webinar',
+                'title' => $webinar->name,
+                'date' => Carbon::parse($webinar->date_start)->translatedFormat('d.m.Y H:i'),
+                'lectors' => $webinar->authors,
+                'image' => url('/').'/'.$webinar->image_path,
+                'status' => $this->GetKinescopeVideoStatus($webinar->link)
+            ];
+        }
+
+        usort($webinars, function($a, $b){
+            return $a['date'] <=> $b['date'];
+        });
+
+        return $webinars;
+    }
+
+    public function GetWebinatStatus(Request $request, $webinarId)
+    {
+        $webinar = Webinar::where('id', $webinarId)->first(); 
+
+        return $this->GetKinescopeVideoStatus($webinar->link);
     }
 }

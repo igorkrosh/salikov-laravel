@@ -48,6 +48,11 @@ class UserController extends Controller
 
             foreach ($this->GetModules($item->course_id)['stream'] as $stream)
             {
+                if (Carbon::parse($stream->date_start)->addDays(1)->isPast())
+                {
+                    continue;
+                }
+
                 $webinars[] = [
                     'id' => $stream->id,
                     'course_id' => $stream->id,
@@ -55,6 +60,7 @@ class UserController extends Controller
                     'title' => $stream->title,
                     'date' => Carbon::parse($stream->date_start)->translatedFormat('d.m.Y H:m'),
                     'lectors' => $stream->authors,
+                    'status' => $this->GetKinescopeVideoStatus($stream->link)
                 ];
             }
 
@@ -80,6 +86,11 @@ class UserController extends Controller
                 continue;
             }
 
+            if (Carbon::parse($webinar->date_start)->addDays(1)->isPast())
+            {
+                continue;
+            }
+
             $webinars[] = [
                 'id' => $webinar->id,
                 'type' => 'webinar',
@@ -87,6 +98,7 @@ class UserController extends Controller
                 'date' => Carbon::parse($webinar->date_start)->translatedFormat('d.m.Y H:i'),
                 'lectors' => $webinar->authors,
                 'image' => url('/').'/'.$webinar->image_path,
+                'status' => $this->GetKinescopeVideoStatus($webinar->link)
             ];
         }
 

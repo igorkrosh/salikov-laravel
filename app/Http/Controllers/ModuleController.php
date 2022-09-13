@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 use App\Models\ModuleStream;
 use App\Models\ModuleVideo;
@@ -35,7 +36,8 @@ class ModuleController extends Controller
                     'link' => $module->link,
                     'date_start' => $module->date_start,
                     'files' => $this->GetModuleFiles($module->id, 'stream'),
-                    'preview' => $this->GetModulePreview($module->id, 'stream')
+                    'preview' => $this->GetModulePreview($module->id, 'stream'),
+                    'status' => $this->GetKinescopeVideoStatus($module->link)
                 ];
             case 'video':
                 $module = ModuleVideo::where('id', $moduleId)->first();
@@ -250,7 +252,7 @@ class ModuleController extends Controller
                 $result[] = [
                     'course' => $item->name,
                     'module' => $module->title,
-                    'date' => $module->check_date,
+                    'date' => Carbon::parse($module->check_date)->translatedFormat('d.m.Y H:m'),
                     'module_id' => $module->id,
                     'task_id' => $task->id,
                     'score' => $task->score,

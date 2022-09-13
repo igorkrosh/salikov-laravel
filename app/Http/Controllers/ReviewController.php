@@ -41,7 +41,7 @@ class ReviewController extends Controller
         $review->material = $request->score['material'];
         $review->files = $request->score['files'];
         $review->useful = $request->score['useful'];
-        $review->text = $request->text;
+        $review->text = empty($request->text) ? '' : $request->text;
 
         $review->save();
     }

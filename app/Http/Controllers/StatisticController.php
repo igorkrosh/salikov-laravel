@@ -17,6 +17,15 @@ class StatisticController extends Controller
 {
     public function StatisticToday(Request $request)
     {
+        $result = [
+            'chart' => [],
+            'numbers' => [
+                'sum' => 0,
+                'count' => 0,
+                'jurictic' => 0,
+            ],
+        ];
+
         if ($request->personal)
         {
             $courses = Course::where('creator', Auth::user()->id)->get();
@@ -40,10 +49,14 @@ class StatisticController extends Controller
             $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereDate('created_at', date('Y-m-d'))->whereIn('object_id', $ids)->get();
 
             $orders = $ordersCourse->concat($ordersWebinar);
+
+            $result['numbers']['jurictic'] += count(JuricticRequest::whereDate('created_at', date('Y-m-d'))->whereIn('object_id', $ids)->get());
         }
         else 
         {
             $orders = Order::where('status', 'CONFIRMED')->whereDate('created_at', date('Y-m-d'))->get();
+
+            $result['numbers']['jurictic'] += count(JuricticRequest::whereDate('created_at', date('Y-m-d'))->get());
         }
 
         $stats = [];
@@ -53,6 +66,7 @@ class StatisticController extends Controller
             if ($order->status != 'CONFIRMED')  continue;
 
             $hour = date('H', strtotime($order->created_at));
+            $hour = intval($hour);
 
             if (empty($stats[$hour]))
             {
@@ -60,21 +74,23 @@ class StatisticController extends Controller
             }
 
             $stats[$hour] += $order->price;
-            
-        }
 
-        $result = [];
+            $result['numbers']['sum'] += $order->price;
+            $result['numbers']['count'] += 1;
+        }
 
         foreach (['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'] as $time)
         {
             if (empty($stats[intval($time)]))
             {
-                $result[] = [$time, 0];
+                $result['chart'][] = [$time, 0];
             }
             else 
             {
-                $result[] = [$time, $stats[intval($time)]];
+                $result['chart'][] = [$time, $stats[intval($time)]];
             }
+
+
         }
 
         return $result;
@@ -86,6 +102,14 @@ class StatisticController extends Controller
         $period = CarbonPeriod::create($date, Carbon::today());
 
         $stats = [];
+        $result = [
+            'chart' => [],
+            'numbers' => [
+                'sum' => 0,
+                'count' => 0,
+                'jurictic' => 0
+            ],
+        ];
 
         foreach ($period as $date)
         {
@@ -115,10 +139,13 @@ class StatisticController extends Controller
                 $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereDate('created_at', $date)->whereIn('object_id', $ids)->get();
 
                 $orders = $ordersCourse->concat($ordersWebinar);
+
+                $result['numbers']['jurictic'] += count(JuricticRequest::whereDate('created_at', $date)->whereIn('object_id', $ids)->get());
             }
             else 
             {
                 $orders = Order::where('status', 'CONFIRMED')->whereDate('created_at', $date)->get();
+                $result['numbers']['jurictic'] += count(JuricticRequest::whereDate('created_at', $date)->get());
             }
 
             $price = 0;
@@ -126,18 +153,29 @@ class StatisticController extends Controller
             foreach ($orders as $order)
             {
                 $price += $order->price;
+                $result['numbers']['sum'] += $order->price;
+                $result['numbers']['count'] += 1;
             }
 
             $stats[$formatDate] = $price;
         }
 
-        return $stats;
+        $result['chart'] = $stats;
+        return $result;
     }
 
     public function StatisticYear(Request $request)
     {
         $today = Carbon::now();
         $stats = [];
+        $result = [
+            'chart' => [],
+            'numbers' => [
+                'sum' => 0,
+                'count' => 0,
+                'jurictic' => 0
+            ],
+        ];
         
         foreach(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'] as $month)
         {
@@ -164,10 +202,13 @@ class StatisticController extends Controller
                 $ordersWebinar = Order::where([['type', 'webinar'], ['status', 'CONFIRMED']])->whereYear('created_at', $today->year)->whereMonth('created_at', $month)->whereIn('object_id', $ids)->get();
 
                 $orders = $ordersCourse->concat($ordersWebinar);
+
+                $result['numbers']['jurictic'] += count(JuricticRequest::whereYear('created_at', $today->year)->whereMonth('created_at', $month)->whereIn('object_id', $ids)->get());
             }
             else 
             {
                 $orders = Order::where('status', 'CONFIRMED')->whereYear('created_at', $today->year)->whereMonth('created_at', $month)->get();
+                $result['numbers']['jurictic'] += count(JuricticRequest::whereYear('created_at', $today->year)->whereMonth('created_at', $month)->get());
             }
 
             $price = 0;
@@ -175,6 +216,8 @@ class StatisticController extends Controller
             foreach ($orders as $order)
             {
                 $price += $order->price;
+                $result['numbers']['sum'] += $order->price;
+                $result['numbers']['count'] += 1;
             }
 
             $monthDate = Carbon::parse($today->year."-".$month.'-01')->translatedFormat('M');
@@ -182,7 +225,8 @@ class StatisticController extends Controller
             $stats[] = [$monthDate, $price];
         }
 
-        return $stats;
+        $result['chart'] = $stats;
+        return $result;
     }
 
     public function StatisticCourses(Request $request)
@@ -199,7 +243,7 @@ class StatisticController extends Controller
 
         foreach($courses as $course)
         {
-            $orders = Order::where([['object_id', $course->id], ['type', 'course']. ['status', 'CONFIRMED']])->get();
+            $orders = Order::where([['object_id', $course->id], ['type', 'course'], ['status', 'CONFIRMED']])->get();
             $sum = 0;
 
             foreach($orders as $order)

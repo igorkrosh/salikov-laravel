@@ -79,7 +79,7 @@ class ReferralController extends Controller
         //$request->session()->put('invite', $userId);
         Cookie::queue('invite_user', $userId, 60);
 
-        return redirect(congig('app.nuxt').config('app.reg'));
+        return redirect(config('app.nuxt').config('app.reg'));
     }
 
     public function Session(Request $request)

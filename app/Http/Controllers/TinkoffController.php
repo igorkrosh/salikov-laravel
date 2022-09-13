@@ -344,16 +344,32 @@ class TinkoffController extends Controller
             $accessModel->save();
         }
 
-        $courseAccess = new CourseAccess();
+        if ($days <= 0)
+        {
+            return;
+        }
 
-        $courseAccess->user_id = $userId;
-        $courseAccess->course_id = $courseId;
+        $courseAccess = CourseAccess::where([['user_id', $userId], ['course_id', $courseId]])->first();
+
+        if (empty($courseAccess))
+        {
+            $courseAccess = new CourseAccess();
+
+            $courseAccess->user_id = $userId;
+            $courseAccess->course_id = $courseId;
+        }
+
+        /*
 
         $dt = new DateTime();
         $dt->setTimezone(new DateTimeZone('Europe/Moscow'));
         $dt->setTimestamp(time() + $days * 24 * 60 * 60);
 
         $courseAccess->deadline = $dt->format('Y-m-d H:i:s');
+
+        */
+
+        $courseAccess->deadline = Carbon::now()->addDays($days)->translatedFormat('Y-m-d H:i:s');
 
         $courseAccess->save();
     }
@@ -528,6 +544,12 @@ class TinkoffController extends Controller
     public function CheckAccessWebinar(Request $request, $webinarId)
     {
         $userId = Auth::user()->id;
+
+        if (Auth::user()->role == 'admin' || Auth::user()->role == 'moderator')
+        {
+            return true;
+        }
+
         $access = WebinarAccess::where([['user_id', $userId], ['webinar_id', $webinarId]])->first();
 
         if (empty($access))

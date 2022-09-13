@@ -364,7 +364,7 @@ class CourseController extends Controller
             'id' => $course->id,
             'name' => $course->name,
             'authors' => $course->authors,
-            'date_start' => $course->date_start,
+            'date_start' => Carbon::parse($course->date_start)->translatedFormat('d.m.Y H:i'),
             'duration' => $course->duration,
             'image' => url('/').'/'.$course->image_path,
             'hours' => $course->hours,
@@ -393,7 +393,7 @@ class CourseController extends Controller
                     'authors' => $module->authors,
                     'title' => $module->title,
                     'link' => $module->link,
-                    'date' => $module->date_start,
+                    'date' => Carbon::parse($module->date_start)->translatedFormat('d.m.Y H:i'),
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'stream'),
                     'access' => $this->IsStart($module->date_start),
                     'files' => $this->GetModuleFiles($module->id, 'stream'),
@@ -432,8 +432,8 @@ class CourseController extends Controller
                     'authors' => $module->authors,
                     'title' => $module->title,
                     'text' => $module->text,
-                    'deadline' => $module->deadline,
-                    'check_date' => $module->check_date,
+                    'deadline' => Carbon::parse($module->deadline)->translatedFormat('d.m.Y H:i'),
+                    'check_date' => Carbon::parse($module->check_date)->translatedFormat('d.m.Y H:i'),
                     'file_path' => url('/').'/'.$module->file,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'job'),
                     'access' => true,
@@ -454,8 +454,8 @@ class CourseController extends Controller
                     'authors' => $module->authors,
                     'title' => $module->title,
                     'test' => $module->test,
-                    'deadline' => $module->deadline,
-                    'check_date' => $module->check_date,
+                    'deadline' => Carbon::parse($module->deadline)->translatedFormat('d.m.Y H:i'),
+                    'check_date' => Carbon::parse($module->check_date)->translatedFormat('d.m.Y H:i'),
                     'file_path' => url('/').'/'.$module->file,
                     'status' => $this->GetModuleStatus(Auth::user()->id, $module->id, 'test'),
                     'access' => true,
@@ -474,7 +474,7 @@ class CourseController extends Controller
             $result['blocks'][] = [
                 'id' => $block->id,
                 'title' => $block->title,
-                'date' => $block->date_start,
+                'date' => Carbon::parse($block->date_start)->translatedFormat('d.m.Y H:i'),
                 'index' => $block->index,
                 'modules' => $modules,
                 'access' => $access,
@@ -842,6 +842,23 @@ class CourseController extends Controller
 
             $access->save();
         }
+
+        if ($request->unlimited == true)
+            return;
+        
+        $courseAccess = CourseAccess::where([['user_id', $user->id], ['course_id', $request->course_id]])->first();
+        
+        if (empty($courseAccess))
+        {
+            $courseAccess = new CourseAccess();
+
+            $courseAccess->user_id = $user->id;
+            $courseAccess->course_id = $request->course_id;
+        }
+
+        $courseAccess->deadline = Carbon::parse($request->access_date)->translatedFormat('Y-m-d H:i:s');
+
+        $courseAccess->save();
     }
 
     public function GetCourseBlocks(Request $request, $courseId)
@@ -866,15 +883,29 @@ class CourseController extends Controller
     {
         $access = BlockAccess::where([['course_id', $courseId], ['user_id', $userId]])->get();
 
-        $response = [];
+        $response = [
+            'access' => [],
+            'accessDate' => [],
+        ];
 
         foreach ($access as $item)
         {
             $block = CourseBlock::where('id', $item->block_id)->first();
-            $response[] = [
+            $response['access'][] = [
                 'id' => $block->id,
                 'title' => $block->title
             ];
+        }
+
+        $courseAccess = CourseAccess::where([['user_id', $userId], ['course_id', $courseId]])->first();
+
+        if (!empty($courseAccess))
+        {
+            $response['accessDate'] = $courseAccess->deadline;
+        }
+        else 
+        {
+            $response['accessDate'] = false;
         }
 
         return $response;
@@ -894,6 +925,23 @@ class CourseController extends Controller
 
             $access->save();
         }
+
+        if ($request->accessDate == false)
+            return CourseAccess::where([['user_id', $userId], ['course_id', $courseId]])->delete();
+        
+        $courseAccess = CourseAccess::where([['user_id', $userId], ['course_id', $courseId]])->first();
+        
+        if (empty($courseAccess))
+        {
+            $courseAccess = new CourseAccess();
+
+            $courseAccess->user_id = $userId;
+            $courseAccess->course_id = $courseId;
+        }
+
+        $courseAccess->deadline = Carbon::parse($request->accessDate)->translatedFormat('Y-m-d H:i:s');
+
+        $courseAccess->save();
     }
 
     public function GetCourseAll(Request $request)

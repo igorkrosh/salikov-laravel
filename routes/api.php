@@ -106,6 +106,8 @@ Route::middleware('auth:sanctum')->get('/stream/get', [WebinarController::class,
 Route::middleware('auth:sanctum')->get('/webinar/{webinarId}/get', [WebinarController::class, 'GetWebinarById']);
 Route::middleware('auth:sanctum')->get('/webinar/{webinarId}/config', [WebinarController::class, 'GetWebinar']);
 Route::middleware('auth:sanctum')->get('/webinar/all', [WebinarController::class, 'GetWebinarAll']);
+Route::middleware('auth:sanctum')->get('/webinar/current', [WebinarController::class, 'GetCurrentWebinars']);
+Route::get('/webinar/{webinarId}/status', [WebinarController::class, 'GetWebinatStatus']);
 
 Route::middleware('auth:sanctum')->post('/webinar/create', [WebinarController::class, 'CreateWebinar']);
 Route::middleware('auth:sanctum')->post('/webinar/{webinarId}/edit', [WebinarController::class, 'EditWebinar']);
