@@ -130,6 +130,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => ['required'],
+            'last_name' => ['required'],
             'email' => ['required', 'email', 'unique:users'],
             'password' => ['required', 'min:6', 'confirmed'],
         ]);
@@ -145,6 +146,7 @@ class AuthController extends Controller
         $user = new User();
 
         $user->name = $request->name;
+        $user->last_name = $request->last_name;
         $user->email = $request->email;
         $user->password = Hash::make($request->password);
         $user->jurictic = empty($request->jurictic) ? false : $request->jurictic;
@@ -214,16 +216,24 @@ class AuthController extends Controller
             'to' => $request->email,
             'subject' => 'Уведовление системы безопастности',
             'text' => 'Код подтверждения',
-            'html' => "<h1>$code</h1>",
+            //'html' => "<h1>$code</h1>",
             'payment' => "subscriber_priority",
+            "params" => [
+                "code" => $code
+            ]
         ];
-
+        /*
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.config('notisend.key')
         ])->withOptions([
             'verify' => false,
         ])->post('https://api.notisend.ru/v1/email/messages', $email);
-
+        */
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.config('notisend.key')
+        ])->withOptions([
+            'verify' => false,
+        ])->post('https://api.notisend.ru/v1/email/templates/647192/messages', $email);
 
 
         return $response;
@@ -271,7 +281,16 @@ class AuthController extends Controller
         $sessionId = $request->session()->getId();
         $session = Session::where('id', $sessionId)->first();
 
-        $user = User::where('id', $session->user_id)->first();
+        //$user = User::where('id', $session->user_id)->first();
+
+        $user = Auth::user();
+
+        if ($request->code == '')
+        {
+            return response()->json([
+                'message' => 'Код не может быть пустым'
+            ] , 422);
+        }
 
         if ($session->validation_code == $request->code)
         {
@@ -285,6 +304,12 @@ class AuthController extends Controller
 
             $session->validation_code = '';
             $session->save();
+        }
+        else 
+        {
+            return response()->json([
+                'message' => 'Неправильный код'
+            ] , 422);
         }
     }
 }

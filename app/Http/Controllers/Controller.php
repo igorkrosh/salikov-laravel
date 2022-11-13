@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Http;
 use DateTime;
 use DateTimeZone;
 
+use Carbon\Carbon;
+
 use App\Models\Course;
 use App\Models\CourseBlock;
 use App\Models\ModuleStream;
@@ -20,6 +22,7 @@ use App\Models\ModuleJob;
 use App\Models\ModuleTest;
 use App\Models\Progress;
 use App\Models\File;
+use App\Models\CourseStatistic;
 
 class Controller extends BaseController
 {
@@ -60,9 +63,8 @@ class Controller extends BaseController
 
     public function IsStart($date)
     {
-        $timeStart = strtotime($date);
-
-        return !($timeStart > time());
+        return Carbon::parse($date)->timezone('Europe/Moscow')->isPast();
+        //return Carbon::now();
     }
 
     public function GetModules($courseId)
@@ -152,6 +154,11 @@ class Controller extends BaseController
         $module = $this->GetModuleByType($moduleId, $type);
         $block = CourseBlock::where('id', $module->block_id)->first();
 
+        if (empty($block))
+        {
+            return 0;
+        }
+
         return $block->course_id;
     }
 
@@ -164,7 +171,8 @@ class Controller extends BaseController
         {
             $result[] = [
                 'id' => $file->id,
-                'url' => url('/').'/'.$file->path,
+                //'url' => url('/').'/'.$file->path,
+                'url' => route('file.download', ['fileId' => $file->id]),
                 'filename' => $file->filename,
             ];
         }
@@ -207,5 +215,22 @@ class Controller extends BaseController
         }
 
         return 'null';
+    }
+
+    public function SetCourseStatistic($userId, $courseId, $key, $value)
+    {
+        $courseStatistic = CourseStatistic::where([['course_id', $courseId], ['user_id', $userId]])->first();
+
+        if (empty($courseStatistic))
+        {
+            $courseStatistic = new CourseStatistic();
+
+            $courseStatistic->user_id = $userId;
+            $courseStatistic->course_id = $courseId;
+        }
+
+        $courseStatistic->$key = $value;
+
+        $courseStatistic->save();
     }
 }

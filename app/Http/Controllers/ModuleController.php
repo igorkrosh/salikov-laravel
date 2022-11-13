@@ -98,6 +98,15 @@ class ModuleController extends Controller
         $progress->status = $request->status;
         $progress->save();
 
+        $courseId = $this->GetCourseIdByModule($moduleId, $type);
+
+        $courseProgress = app(CourseController::class)->CalcCourseProgress($courseId, $user->id);
+
+        if ($courseProgress >= 100)
+        {
+            $this->SetCourseStatistic($user->id, $courseId, 'date_complete', Carbon::now()->translatedFormat('d.m.Y H:i'));
+        }
+
         return $progress;
     }
 

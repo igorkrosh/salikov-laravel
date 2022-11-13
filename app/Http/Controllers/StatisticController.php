@@ -12,6 +12,7 @@ use App\Models\Promocode;
 use App\Models\Course;
 use App\Models\Webinar;
 use App\Models\JuricticRequest;
+use App\Models\Setting;
 
 class StatisticController extends Controller
 {
@@ -73,7 +74,15 @@ class StatisticController extends Controller
                 $stats[$hour] = 0;
             }
 
-            $stats[$hour] += $order->price;
+            if ($request->personal)
+            {
+                $stats[$hour] += $order->price * Setting::where('key', 'royalty')->first()->value / 100;
+            }
+            else 
+            {
+                $stats[$hour] += $order->price;
+            }
+
 
             $result['numbers']['sum'] += $order->price;
             $result['numbers']['count'] += 1;
@@ -89,8 +98,17 @@ class StatisticController extends Controller
             {
                 $result['chart'][] = [$time, $stats[intval($time)]];
             }
+        }
 
+        $royalty = $result['numbers']['sum'] * Setting::where('key', 'royalty')->first()->value / 100;
 
+        if ($request->personal)
+        {
+            $result['numbers']['sum'] = $royalty;
+        }
+        else 
+        {
+            $result['numbers']['royalty'] = $royalty;
         }
 
         return $result;
@@ -157,10 +175,29 @@ class StatisticController extends Controller
                 $result['numbers']['count'] += 1;
             }
 
-            $stats[$formatDate] = $price;
+            if ($request->personal)
+            {
+                $stats[$formatDate] = $price * Setting::where('key', 'royalty')->first()->value / 100;
+            }
+            else 
+            {
+                $stats[$formatDate] = $price;
+            }
         }
 
         $result['chart'] = $stats;
+
+        $royalty = $result['numbers']['sum'] * Setting::where('key', 'royalty')->first()->value / 100;
+
+        if ($request->personal)
+        {
+            $result['numbers']['sum'] = $royalty;
+        }
+        else 
+        {
+            $result['numbers']['royalty'] = $royalty;
+        }
+
         return $result;
     }
 
@@ -222,10 +259,29 @@ class StatisticController extends Controller
 
             $monthDate = Carbon::parse($today->year."-".$month.'-01')->translatedFormat('M');
 
-            $stats[] = [$monthDate, $price];
+            if ($request->personal)
+            {
+                $stats[] = [$monthDate, $price * Setting::where('key', 'royalty')->first()->value / 100];
+            }
+            else 
+            {
+                $stats[] = [$monthDate, $price];
+            }
         }
 
         $result['chart'] = $stats;
+
+        $royalty = $result['numbers']['sum'] * Setting::where('key', 'royalty')->first()->value / 100;
+
+        if ($request->personal)
+        {
+            $result['numbers']['sum'] = $royalty;
+        }
+        else 
+        {
+            $result['numbers']['royalty'] = $royalty;
+        }
+        
         return $result;
     }
 

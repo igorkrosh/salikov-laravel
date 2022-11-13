@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\FileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,4 +23,5 @@ Route::get('/', function () {
 
 Route::get('/link/{ref}', [ReferralController::class, 'RedirectReferralLink']);
 Route::get('/invite/{userId}', [ReferralController::class, 'InviteUser']);
-Route::get('/session', [ReferralController::class, 'Session']);
+
+Route::get('/file/download/{fileId}', [FileController::class, 'DownloadFile'])->name('file.download');

@@ -16,6 +16,7 @@ use App\Models\ModuleVideo;
 use App\Models\ModuleJob;
 use App\Models\ModuleTest;
 use App\Models\WebinarAccess;
+use App\Models\EducatorAccess;
 
 class WebinarController extends Controller
 {
@@ -61,7 +62,9 @@ class WebinarController extends Controller
 
         if (config('modx.sync'))
         {
-            $response = Http::post(config('modx.api').'/CreateWebinar', [
+            $response = Http::withOptions([
+                'verify' => false,
+            ])->post(config('modx.api').'/CreateWebinar', [
                 'pagetitle' => $newWebinar->name,
                 'image' => $imgUrl,
                 'date' => $this->ConvertDate($newWebinar->date_start),
@@ -114,7 +117,15 @@ class WebinarController extends Controller
     {
         $user_id = Auth::user()->id;
 
-        $courses = Webinar::where('creator', $user_id)->get();
+        if (Auth::user()->role == 'admin' || Auth::user()->role == 'moderator')
+        {
+            $courses = Webinar::all();
+        }
+        else 
+        {
+            $courses = Webinar::where('creator', $user_id)->get();
+        }
+
         $result = [];
 
         foreach ($courses as $course)
@@ -184,8 +195,30 @@ class WebinarController extends Controller
     {
         $user_id = Auth::user()->id;
 
-        $webinars = Webinar::where('creator', $user_id)->get();
-        $courses = Course::where('creator', $user_id)->get();
+        if (Auth::user()->role == 'admin' || Auth::user()->role == 'moderator')
+        {
+            $webinars = Webinar::all();
+            $courses = Course::all();
+        }
+        elseif (Auth::user()->role == 'educator')
+        {
+            $webinars = Webinar::where('creator', $user_id)->get();
+            $accesses = EducatorAccess::where('user_id', $user_id)->get();
+            $courseIds = [];
+
+            foreach ($accesses as $access)
+            {
+                $courseIds[] = $access->course_id;
+            }
+
+            $courses = Course::whereIn('id', $courseIds)->get();
+        }
+        else 
+        {
+            $courses = Course::where('creator', $user_id)->get();
+        }
+
+        
         $stream = [];
 
         foreach ($courses as $course)
@@ -293,7 +326,8 @@ class WebinarController extends Controller
                 'date' => Carbon::parse($webinar->date_start)->translatedFormat('d.m.Y H:i'),
                 'lectors' => $webinar->authors,
                 'image' => url('/').'/'.$webinar->image_path,
-                'status' => $this->GetKinescopeVideoStatus($webinar->link)
+                'status' => $this->GetKinescopeVideoStatus($webinar->link),
+                'deadline' => empty($webinarAccess->deadline) ? '' : Carbon::parse($webinarAccess->deadline)->translatedFormat('d.m.Y H:i')
             ];
         }
 

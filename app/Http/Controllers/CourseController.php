@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Config;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 use App\Models\Course;
 use App\Models\CourseBlock;
@@ -19,6 +20,10 @@ use App\Models\User;
 use App\Models\BlockAccess;
 use App\Models\CourseAccess;
 use App\Models\File;
+use App\Models\Progress;
+use App\Models\CourseStatistic;
+use App\Models\Task;
+use App\Models\EducatorAccess;
 
 class CourseController extends Controller
 {
@@ -193,7 +198,9 @@ class CourseController extends Controller
 
         if (config('modx.sync'))
         {
-            $response = Http::post(config('modx.api').'/CreateCourse', [
+            $response = Http::withOptions([
+                'verify' => false,
+            ])->post(config('modx.api').'/CreateCourse', [
                 'pagetitle' => $course->name,
                 'image' => $imgUrl,
                 'date' => $this->ConvertDate($course->date_start),
@@ -210,7 +217,15 @@ class CourseController extends Controller
     {
         $user_id = Auth::user()->id;
 
-        $courses = Course::where('creator', $user_id)->get();
+        if (Auth::user()->role == 'admin' || Auth::user()->role == 'moderator')
+        {
+            $courses = Course::all();
+        }
+        else 
+        {
+            $courses = Course::where('creator', $user_id)->get();
+        }
+
         $result = [];
 
         foreach ($courses as $course)
@@ -425,6 +440,20 @@ class CourseController extends Controller
 
             foreach ($modulesJob as $module)
             {
+                $task = Task::where([['user_id', Auth::user()->id], ['type', 'job'], ['module_id', $module->id]])->first();
+                $data = [];
+
+                if (!empty($task))
+                {
+                    $data = [
+                        'title' => $module->title,
+                        'comment' => $task->comment,
+                        'job' => $module->text,
+                        'answer' => $task->task,
+                        'score' => $task->score,
+                    ];
+                }
+                
                 $modules[] = [
                     'id' => $module->id,
                     'type' => 'job',
@@ -440,6 +469,7 @@ class CourseController extends Controller
                     'files' => $this->GetModuleFiles($module->id, 'job'),
                     'deleted_files' => [],
                     'new_files' => [],
+                    'data' => $data
                 ];
             }
 
@@ -485,6 +515,11 @@ class CourseController extends Controller
         usort($result['blocks'], function($a, $b){
             return $a['index'] <=> $b['index'];
         });
+
+        if (Auth::user()->role == 'user')
+        {
+            $this->SetCourseStatistic(Auth::user()->id, $courseId, 'last_visit', Carbon::now()->translatedFormat('d.m.Y H:i'));
+        }
 
         return $result;
 
@@ -790,7 +825,9 @@ class CourseController extends Controller
 
         if (config('modx.sync'))
         {
-            $response = Http::post(config('modx.api').'/DeleteCourse', [
+            $response = Http::withOptions([
+                'verify' => false,
+            ])->post(config('modx.api').'/DeleteCourse', [
                 'id' => $courseId,
             ]);
         }
@@ -800,11 +837,26 @@ class CourseController extends Controller
     {
         $course = Course::where('id', $courseId)->first();
         $creator = User::where('id', $course->creator)->first();
+        
+        $educatorsList = EducatorAccess::where('course_id', $courseId)->get();
+        $educators = [];
 
         $response = [
             'curators' => [],
             'users' => [],
+            'educators' => []
         ];
+
+        foreach ($educatorsList as $educator)
+        {
+            $user = User::where('id', $educator->user_id)->first();
+
+            $response['educators'][] = [
+                'image' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path,
+                'name' => $user->name.' '.$user->last_name,
+                'id' => $user->id,
+            ];
+        }
 
         $response['curators'][] = [
             'image' => empty($creator->img_path) ? '' : url('/').'/'.$creator->img_path,
@@ -901,7 +953,7 @@ class CourseController extends Controller
 
         if (!empty($courseAccess))
         {
-            $response['accessDate'] = $courseAccess->deadline;
+            $response['accessDate'] = Carbon::parse($courseAccess->deadline)->translatedFormat('d.m.Y H:i');
         }
         else 
         {
@@ -985,19 +1037,26 @@ class CourseController extends Controller
 
     public function CourseCaterogies(Request $request)
     {
-        return Http::get(config('modx.api').'/CourseCategoriesList')->object();
+        return Http::withOptions([
+            'verify' => false,
+        ])->get(config('modx.api').'/CourseCategoriesList')->object();
     }
 
     public function CourseFilter(Request $request)
     {
-        $categories = Http::get(config('modx.api').'/CourseCategoriesList')->object();
+        $categories = Http::withOptions([
+            'verify' => false,
+        ])->get(config('modx.api').'/CourseCategoriesList')->object();
         $courses = Course::get();
         
         $filterCourses = [];
 
         foreach ($courses as $course)
         {
-            $filterCourses[] = $course->name;
+            $filterCourses[] = [
+                'name' => $course->name,
+                'id' => $course->id
+            ];
         }
 
         return [
@@ -1025,5 +1084,187 @@ class CourseController extends Controller
         }
 
         return $response;
+    }
+
+    public function CourseStudents(Request $request)
+    {
+        if (empty($request->filter) || empty($request->filter['course']))
+        {
+            return [
+                'users' => [],
+                'count' => 0
+            ];
+        }
+
+        $users = DB::table('users');
+
+        $useSort = !empty($request->filter['sortBy']);
+
+        $courseId = $request->filter['course'];
+        $course = Course::where('id', $courseId)->first();
+
+        $blockAccess = BlockAccess::where('course_id', $course->id)->get()->unique('user_id');
+        $ids = [];
+        
+        foreach ($blockAccess as $access)
+        {
+            $ids[] = $access->user_id;
+        }
+
+        $users->where(function ($query) use ($ids) {
+            $query->whereIn('id', $ids);
+        });
+
+        $users = $users->get();
+
+        $result = [];
+
+        foreach ($users as $user)
+        {
+            $progress = $this->CalcCourseProgress($course->id, $user->id) == 100 ? 'done' : 'work';
+            $courseStatistic = CourseStatistic::where([['course_id', $course->id], ['user_id', $user->id]])->first();
+            $statistic = [];
+
+            if (empty($courseStatistic))
+            {
+                $statistic = [
+                    'date_complete' => '-',
+                    'date_payment' => '-',
+                    'last_visit' => '-',
+                ];
+            }
+            else 
+            {
+                $statistic = [
+                    'date_complete' => $courseStatistic->date_complete,
+                    'date_payment' => $courseStatistic->date_payment,
+                    'last_visit' => $courseStatistic->last_visit,
+                ];
+            }
+
+            $result[] = [
+                'user' => [
+                    'id' => $user->id,
+                    'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path,
+                    'name' => $user->name.' '.$user->last_name,
+                    'email' => $user->email,
+                ],
+                'status' => $progress,
+                'created_at' => empty($user->created_at) ? '-' : Carbon::parse($user->created_at)->translatedFormat('d.m.Y H:i'),
+                'statistic' => $statistic
+            ];
+        }
+
+        if ($useSort)
+        {
+            $sortBy = $request->filter['sortBy'];
+            $sortDir = $request->filter['sortDir'];
+
+            if ($sortDir == 'asc')
+            {
+                usort($result, function($a, $b) use ($sortBy) {
+                    $dateA = $a['statistic'][$sortBy] == '-' ? 0 : Carbon::parse($a['statistic'][$sortBy])->timestamp;
+                    $dateB = $b['statistic'][$sortBy] == '-' ? 0 : Carbon::parse($b['statistic'][$sortBy])->timestamp;
+                    
+                    return $dateA >= $dateB;
+                });
+            }
+            else 
+            {
+                usort($result, function($a, $b) use ($sortBy) {
+                    $dateA = $a['statistic'][$sortBy] == '-' ? 0 : Carbon::parse($a['statistic'][$sortBy])->timestamp;
+                    $dateB = $b['statistic'][$sortBy] == '-' ? 0 : Carbon::parse($b['statistic'][$sortBy])->timestamp;
+                    
+                    return $dateA <= $dateB;
+                });
+            }
+        }
+        
+
+        return [
+            'users' => $result,
+            'count' => count($result)
+        ];
+    }
+
+    public function CalcCourseProgress($courseId, $userId)
+    {
+        $course = Course::where('id', $courseId)->first();
+        $user = User::where('id', $userId)->first();
+
+        $modules = $this->GetModules($course->id);
+
+        $count = count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']);
+        $done = 0;
+
+        $moduleTypes = ['stream', 'video', 'job', 'test'];
+
+        foreach ($moduleTypes as $key)
+        {
+            foreach ($modules[$key] as $module)
+            {
+                $progress = Progress::where([['module_id', $module->id], ['type', $key], ['user_id', $userId]])->first();
+
+                if (empty($progress))
+                {
+                    continue;
+                }
+
+                if ($progress->status == 'done')
+                {
+                    $done++;
+                }
+            }
+        }
+
+        if ($done == 0)
+        {
+            $progress = 0;
+        }
+        else 
+        {
+            $progress = round(($done / $count) * 100);
+        }
+
+        return $progress;
+    }
+
+    public function AddEducator(Request $request, $courseId)
+    {
+        $request->validate([
+            'email' => ['required']
+        ]);
+
+        $educator = User::where('email', $request->email)->first();
+
+        if (empty($educator))
+        {
+            return response()->json([
+                'message' => 'Пользователь не найдет'
+            ] , 422);
+        }
+
+        if ($educator->role != 'educator')
+        {
+            return response()->json([
+                'message' => 'Пользователь не преподаватель'
+            ] , 422);
+        }
+
+        $access = EducatorAccess::where('course_id', $courseId)->first();
+
+        if (!empty($access))
+        {
+            return response()->json([
+                'message' => 'Пользователь уже добавлен в преподаватели'
+            ] , 422);
+        }
+
+        $access = new EducatorAccess();
+
+        $access->user_id = $educator->id;
+        $access->course_id = $courseId;
+
+        $access->save();
     }
 }

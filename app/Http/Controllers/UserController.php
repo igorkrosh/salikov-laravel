@@ -58,7 +58,7 @@ class UserController extends Controller
                     'course_id' => $stream->id,
                     'type' => 'stream',
                     'title' => $stream->title,
-                    'date' => Carbon::parse($stream->date_start)->translatedFormat('d.m.Y H:m'),
+                    'date' => Carbon::parse($stream->date_start)->translatedFormat('d.m.Y H:i'),
                     'lectors' => $stream->authors,
                     'status' => $this->GetKinescopeVideoStatus($stream->link)
                 ];
@@ -66,14 +66,18 @@ class UserController extends Controller
 
             foreach ($this->GetModules($item->course_id)['job'] as $job)
             {
-                $journal[] = [
-                    'type' => '',
-                    'course' => $course->name,
-                    'course_id' => $course->id,
-                    'module' => $job->title, 
-                    'date' => $job->deadline,
-                    'task_id' => $job->id,
-                ];
+                if (empty(Task::where('module_id', $job->id)->first()))
+                {
+                    $journal[] = [
+                        'type' => '',
+                        'course' => $course->name,
+                        'course_id' => $course->id,
+                        'module' => $job->title, 
+                        'date' => Carbon::parse($job->deadline)->translatedFormat('d.m.Y H:i'),
+                        'task_id' => $job->id,
+                    ];
+                }
+                
             }
         }
 
@@ -111,12 +115,24 @@ class UserController extends Controller
         foreach (Task::where('user_id', $user->id)->get() as $task)
         {
             $module = $this->GetModuleByType($task->module_id, $task->type);
-            $results[] = [
-                'type' => $task->score,
-                'title' => $module->title,
-                'lectors' => $module->authors,
-                'date' => $module->date_check
-            ];
+            if (empty($module))
+            {
+                continue;
+            }
+            if (!empty($task->score))
+            {
+                $results[] = [
+                    'type' => $task->score,
+                    'title' => $module->title,
+                    'lectors' => $module->authors,
+                    'date' => $module->date_check,
+                    'comment' => $task->comment,
+                    'job' => $module->text,
+                    'answer' => $task->task,
+                    'id' => $module->id,
+                ];
+            }
+            
         }
 
         if ($user->jurictic)
@@ -287,6 +303,7 @@ class UserController extends Controller
         $useName = !empty($request->filter['name']);
         $useCategory = !empty($request->filter['category']);
         $useCourse = !empty($request->filter['course']);
+        $useSort = !empty($request->filter['sort']);
 
         $users = $users->where(function ($query) use ($useAdmin, $useEducator, $useUser, $useAuthor) {
             if ($useAdmin)
@@ -345,17 +362,11 @@ class UserController extends Controller
 
         if ($useCourse)
         {
-            $courseName = $request->filter['course'];
+            $courseId = $request->filter['course'];
 
-            $courses = DB::table('courses')->where('name', "$courseName")->get();
-            $ids = [];
-            
-            foreach ($courses as $course)
-            {
-                $ids[] = $course->id;
-            }
+            $course = Course::where('id', $courseId)->first();
 
-            $blockAccess = CourseAccess::whereIn('course_id', $ids)->get()->unique('user_id');
+            $blockAccess = BlockAccess::where('course_id', $course->id)->get()->unique('user_id');
             $ids = [];
             
             foreach ($blockAccess as $access)
@@ -369,9 +380,43 @@ class UserController extends Controller
         }
 
         $users = $users->get();
+        $table = [];
+
+        foreach ($users as $user)
+        {
+            $table[] = [
+                'id' => $user->id,
+                'name' => $user->name,
+                'last_name' => $user->last_name,
+                'birthday' => $user->birthday,
+                'city' => $user->city,
+                'phone' => $user->phone,
+                'email' => $user->email,
+                'role' => $user->role,
+                'created_at' => Carbon::parse($user->created_at)->translatedFormat('d.m.Y H:i'),
+                'avatar' => empty($user->img_path) ? '' : url('/').'/'.$user->img_path,
+
+            ];
+        }
+
+        if ($useSort)
+        {
+            if ($request->filter['sort'] == 'asc')
+            {
+                usort($table, function($a, $b){
+                    return Carbon::parse($a['created_at'])->getTimestamp() >= Carbon::parse($b['created_at'])->getTimestamp();
+                });
+            }
+            else 
+            {
+                usort($table, function($a, $b){
+                    return Carbon::parse($a['created_at'])->getTimestamp() <= Carbon::parse($b['created_at'])->getTimestamp();
+                });
+            }
+        }
 
         return [
-            'users' => $users,
+            'users' => $table,
             'count' => count($users)
         ];
     }
@@ -473,6 +518,7 @@ class UserController extends Controller
     public function GetUserProgress(Request $request)
     {
         $user = Auth::user();
+
         $access = BlockAccess::where('user_id', $user->id)->get()->unique('course_id');
 
         $response = [
@@ -490,40 +536,7 @@ class UserController extends Controller
                 continue;
             }
 
-            $modules = $this->GetModules($course->id);
-
-            $count = count($modules['stream']) + count($modules['video']) + count($modules['job']) + count($modules['test']);
-            $done = 0;
-
-            $moduleTypes = ['stream', 'video', 'job', 'test'];
-
-            foreach ($moduleTypes as $key)
-            {
-                foreach ($modules[$key] as $module)
-                {
-                    $progress = Progress::where([['module_id', $module->id], ['type', $key]])->first();
-
-                    if (empty($progress))
-                    {
-                        continue;
-                    }
-
-                    if ($progress->status == 'done')
-                    {
-                        $done++;
-                    }
-                }
-            }
-
-            if ($done == 0)
-            {
-                $progress = 0;
-            }
-            else 
-            {
-                $progress = round(($done / $count) * 100);
-            }
-
+            $progress = app(CourseController::class)->CalcCourseProgress($item->course_id, $user->id);
 
             $data = [
                 'id' => $item->course_id,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 use Image;
 
@@ -155,5 +156,59 @@ class FileController extends Controller
         Storage::disk('public')->delete(str_replace('storage/', '', $file->path));
 
         $file->delete();
+    }
+
+    public function DownloadFile(Request $request, $fileId)
+    {
+        $file = File::where('id', $fileId)->first();
+
+        $file->download += 1;
+        $file->save();
+
+        return redirect(url('/').'/'.$file->path);
+    }
+
+    public function GetFilesStatistic(Request $request)
+    {
+        $files =  File::get();
+        $result = [];
+
+        foreach($files as $file)
+        {
+            if ($file->type == 'webinar')
+            {
+                continue;
+            }
+
+            $courseId = $this->GetCourseIdByModule($file->module_id, $file->type);
+
+            $result[] = [
+                'filename' => $file->filename,
+                'link' => url('/').'/'.$file->path,
+                'date' => Carbon::parse($file->created_at)->translatedFormat('d.m.Y H:i'),
+                'course' => $courseId == 0 ? '-' : Course::where('id', $courseId)->first()->name,
+                'download' => $file->download
+            ];
+        }
+
+        $sortDir = $request->filter['sortDir'];
+
+        if (!empty($sortDir))
+        {
+            usort($result, function($a, $b) use ($sortDir){
+
+                if ($sortDir == 'asc')
+                {
+                    return $a['download'] >= $b['download'];
+                }
+
+                if ($sortDir == 'desc')
+                {
+                    return $a['download'] <= $b['download'];
+                }
+            });
+        }
+
+        return $result;
     }
 }

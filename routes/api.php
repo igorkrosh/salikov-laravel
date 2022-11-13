@@ -93,6 +93,8 @@ Route::middleware('auth:sanctum')->post('/course/create', [CourseController::cla
 Route::middleware('auth:sanctum')->post('/course/{courseId}/edit', [CourseController::class, 'EditCourse']);
 Route::middleware('auth:sanctum')->post('/course/{courseId}/set-access', [CourseController::class, 'AddUserAccess']);
 Route::middleware('auth:sanctum')->post('/course/{courseId}/user/{userId}/set-access', [CourseController::class, 'SetCourseUserAccess']);
+Route::middleware('auth:sanctum')->post('/course/students', [CourseController::class, 'CourseStudents']);
+Route::middleware('auth:sanctum')->post('/course/{courseId}/educators/add', [CourseController::class, 'AddEducator']);
 
 
 Route::middleware('auth:sanctum')->delete('/course/{courseId}/delete', [CourseController::class, 'DeleteCourse']);
@@ -137,6 +139,7 @@ Route::middleware('auth:sanctum')->post('/task/{taskId}/check', [ModuleControlle
 Route::middleware('auth:sanctum')->post('/file/user/avatar', [FileController::class, 'StoreUserAvatar']);
 Route::middleware('auth:sanctum')->post('/file/course/{courseId}/cover', [FileController::class, 'StoreCourseCover']);
 Route::middleware('auth:sanctum')->post('/file/webinar/{webinarId}/cover', [FileController::class, 'StoreWebinarCover']);
+Route::middleware('auth:sanctum')->post('/file/statistic', [FileController::class, 'GetFilesStatistic']);
 
 /**********************/
 
@@ -176,6 +179,7 @@ Route::middleware('auth:sanctum')->delete('/chat/{type}/{streamId}/message/{mess
 /**********************/
 
 /*** TinkoffController ***/
+
 Route::middleware('auth:sanctum')->get('/check/webinar/{webinarId}/access', [TinkoffController::class, 'CheckAccessWebinar']);
 
 Route::middleware('auth:sanctum')->post('/buy/course/{courseId}', [TinkoffController::class, 'BuyCourse']);
@@ -186,6 +190,8 @@ Route::middleware('auth:sanctum')->post('/buy/webinar/{webinarId}/order/jurictic
 
 Route::middleware('auth:sanctum')->post('/buy/webinar/{webinarId}', [TinkoffController::class, 'BuyWebinar']);
 Route::middleware('auth:sanctum')->post('/buy/webinar/{webinarId}/order/free', [TinkoffController::class, 'TakeFreeWebinar']);
+Route::middleware('auth:sanctum')->post('/order/statistic', [TinkoffController::class, 'OrdersStatistic']);
+Route::middleware('auth:sanctum')->post('/order/{type}/{objectId}/init', [TinkoffController::class, 'OrderInit']);
 
 Route::post('/buy/order/notification', [TinkoffController::class, 'PaymentNotification']);
 Route::post('/buy/order/notification', [TinkoffController::class, 'PaymentNotification']);

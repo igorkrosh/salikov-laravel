@@ -64,20 +64,29 @@ class ReviewController extends Controller
             switch ($type) 
             {
                 case 'course':
-                    $name = Course::where('id', $review->object_id)->first()->name;
+                    if (!empty(Course::where('id', $review->object_id)->first()))
+                        $name = Course::where('id', $review->object_id)->first()->name;
                     break;
                 case 'stream':
-                    $name = ModuleStream::where('id', $review->object_id)->first()->title;
+                    if (!empty(ModuleStream::where('id', $review->object_id)->first()))
+                        $name = ModuleStream::where('id', $review->object_id)->first()->title;
                     break;
                 case 'video':
-                    $name = ModuleVideo::where('id', $review->object_id)->first()->title;
+                    if (!empty(ModuleVideo::where('id', $review->object_id)->first()))
+                        $name = ModuleVideo::where('id', $review->object_id)->first()->title;
                     break;
                 case 'webinar':
-                    $name = Webinar::where('id', $review->object_id)->first()->name;
+                    if (!empty(Webinar::where('id', $review->object_id)->first()))
+                        $name = Webinar::where('id', $review->object_id)->first()->name;
                     break;
                 default:
                     $name = null;
                     break;
+            }
+
+            if (empty($name))
+            {
+                continue;
             }
 
             $result[] = [

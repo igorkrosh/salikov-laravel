@@ -61,37 +61,49 @@ class TinkoffController extends Controller
         $desc = "Покупка доступа к курсу \"$courseName\" ($packetName)";
         $orderId = time();
 
-        $orderData = [
-            'TerminalKey' => config('tinkoff.terminal_key'),
-            'Amount' => $amount,
-            'Description' => $desc,
-            'OrderId' => $orderId,
-            'NotificationURL' => url('/')."/api/buy/order/notification",
-        ];
+        $order = Order::where([['user_id', $userId], ['type', 'course'], ['object_id', $courseId]])->whereIn('status', ['INIT', 'VISIT'])->first();
 
-        $order = new Order();
+        if (empty($order))
+        {
+            $order = new Order();
 
-        $order->user_id = $userId;
-        $order->order_id = $orderId;
-        $order->type = 'course';
+            $order->user_id = $userId;
+            $order->order_id = $orderId;
+            $order->type = 'course';
+            $order->object_id = $courseId;
+        }
+
         $order->days = $request->access_days;
         $order->access = $request->access;
         $order->status = 'INIT';
         $order->price = $orderPrice;
-        $order->object_id = $courseId;
+
         $order->packet = $packetName;
         $order->promocode = empty($request->promocode) ? '' : $request->promocode;
         $order->points = empty($request->use_points) ? 0 : Auth::user()->active_points;
 
-        $order->save();
-
-        $redId = $request->cookie('ref_id');
-        $referralLink = ReferralLink::where('ref_id', $redId)->first();
-
-        if (!empty($referralLink))
+        if (!empty($request->cookie('ref_id')))
         {
-            $referralLink->requests = $referralLink->requests + 1;
+            $redId = $request->cookie('ref_id');
+            $referralLink = ReferralLink::where('ref_id', $redId)->first();
+    
+            if (!empty($referralLink))
+            {
+                $referralLink->requests = $referralLink->requests + 1;
+            }
+
+            $order->ref_id = $request->cookie('ref_id');
         }
+
+        $order->save();
+        
+        $orderData = [
+            'TerminalKey' => config('tinkoff.terminal_key'),
+            'Amount' => $amount,
+            'Description' => $desc,
+            'OrderId' => $order->order_id,
+            'NotificationURL' => url('/')."/api/buy/order/notification",
+        ];
 
         $response = Http::withOptions([
             'verify' => false,
@@ -128,15 +140,19 @@ class TinkoffController extends Controller
         $order->type = 'course';
         $order->packet = $packetName;
 
-        $order->save();
-
-        $redId = $request->cookie('ref_id');
-        $referralLink = ReferralLink::where('ref_id', $redId)->first();
-
-        if (!empty($referralLink))
+        if (!empty($request->cookie('ref_id')))
         {
-            $referralLink->requests = $referralLink->requests + 1;
+            $referralLink = ReferralLink::where('ref_id', $request->cookie('ref_id'))->first();
+
+            if (!empty($referralLink))
+            {
+                $referralLink->requests = $referralLink->requests + 1;
+            }
+
+            $order->ref_id = $request->cookie('ref_id');
         }
+
+        $order->save();
 
         $this->AddAccessCourse($order->object_id, $order->user_id, $order->access, $order->days);
 
@@ -158,14 +174,6 @@ class TinkoffController extends Controller
         $desc = "Покупка доступа к вебинару \"$webinarName\"";
         $orderId = time();
 
-        $orderData = [
-            'TerminalKey' => config('tinkoff.terminal_key'),
-            'Amount' => $amount,
-            'Description' => $desc,
-            'OrderId' => $orderId,
-            'NotificationURL' => url('/')."/api/buy/order/notification",
-        ];
-
         $access = WebinarAccess::where([['user_id', $userId], ['webinar_id', $webinarId]])->first();
 
         if (!empty($access))
@@ -175,27 +183,46 @@ class TinkoffController extends Controller
             ] , 422);
         }
 
-        $order = new Order();
+        $order = Order::where([['user_id', $userId], ['type', 'webinar'], ['object_id', $webinarId]])->whereIn('status', ['INIT', 'VISIT'])->first();
 
-        $order->user_id = $userId;
-        $order->order_id = $orderId;
-        $order->type = 'webinar';
+        if (empty($order))
+        {
+            $order = new Order();
+
+            $order->user_id = $userId;
+            $order->order_id = $orderId;
+            $order->type = 'webinar';
+            $order->object_id = $webinarId;
+        }
+
+        
         $order->days = $request->access_days;
         $order->access = 0;
         $order->status = 'INIT';
         $order->price = $request->price;
-        $order->object_id = $webinarId;
         $order->packet = $request->packet_name;
+
+        if (!empty($request->cookie('ref_id')))
+        {
+            $referralLink = ReferralLink::where('ref_id', $request->cookie('ref_id'))->first();
+
+            if (!empty($referralLink))
+            {
+                $referralLink->requests = $referralLink->requests + 1;
+            }
+
+            $order->ref_id = $request->cookie('ref_id');
+        }
 
         $order->save();
 
-        $redId = $request->cookie('ref_id');
-        $referralLink = ReferralLink::where('ref_id', $redId)->first();
-
-        if (!empty($referralLink))
-        {
-            $referralLink->requests = $referralLink->requests + 1;
-        }
+        $orderData = [
+            'TerminalKey' => config('tinkoff.terminal_key'),
+            'Amount' => $amount,
+            'Description' => $desc,
+            'OrderId' => $order->order_id,
+            'NotificationURL' => url('/')."/api/buy/order/notification",
+        ];
 
         $response = Http::withOptions([
             'verify' => false,
@@ -255,6 +282,7 @@ class TinkoffController extends Controller
         if ($order->type == 'course')
         {
             $this->AddAccessCourse($order->object_id, $order->user_id, $order->access, $order->days);
+            $this->SetCourseStatistic($order->user_id, $order->object_id, 'date_payment', Carbon::now()->translatedFormat('d.m.Y H:i'));
         }
 
         
@@ -272,12 +300,14 @@ class TinkoffController extends Controller
             $user->save();
         }
 
-        $refId = $request->cookie('ref_id');
-        $referralLink = ReferralLink::where('ref_id', $refId)->first();
-
-        if (!empty($referralLink))
+        if (!empty($order->ref_id))
         {
-            $referralLink->sum = $referralLink->sum + $order->price;
+            $referralLink = ReferralLink::where('ref_id', $order->ref_id)->first();
+    
+            if (!empty($referralLink))
+            {
+                $referralLink->sum = $referralLink->sum + $order->price;
+            }
         }
         
         $this->ChechIntive($order);
@@ -298,13 +328,15 @@ class TinkoffController extends Controller
 
         $order->save();
 
-        $refId = $request->cookie('ref_id');
-        $referralLink = ReferralLink::where('ref_id', $refId)->first();
-
-        if (!empty($referralLink))
+        if (!empty($order->ref_id))
         {
-            $referralLink->sum = $referralLink->sum + $order->price;
-            $referralLink->requests = $referralLink->requests + 1;
+            $referralLink = ReferralLink::where('ref_id', $order->ref_id)->first();
+
+            if (!empty($referralLink))
+            {
+                $referralLink->sum = $referralLink->sum + $order->price;
+                $referralLink->requests = $referralLink->requests + 1;
+            }
         }
 
         $this->ChechIntive($order);
@@ -359,16 +391,6 @@ class TinkoffController extends Controller
             $courseAccess->course_id = $courseId;
         }
 
-        /*
-
-        $dt = new DateTime();
-        $dt->setTimezone(new DateTimeZone('Europe/Moscow'));
-        $dt->setTimestamp(time() + $days * 24 * 60 * 60);
-
-        $courseAccess->deadline = $dt->format('Y-m-d H:i:s');
-
-        */
-
         $courseAccess->deadline = Carbon::now()->addDays($days)->translatedFormat('Y-m-d H:i:s');
 
         $courseAccess->save();
@@ -388,7 +410,11 @@ class TinkoffController extends Controller
 
         $access->user_id = $userId;
         $access->webinar_id = $webinarId;
-        $access->deadline = Carbon::parse($webinar->date_start)->addDays($days);
+
+        if ($days != 0)
+        {
+            $access->deadline = Carbon::now()->addDays($days);
+        }
 
         $access->save();
     }
@@ -407,15 +433,22 @@ class TinkoffController extends Controller
         $packetName = $request->packet_name;
         $userId = Auth::user()->id;
 
-        $order = new Order();
+        $order = Order::where([['user_id', $userId], ['type', 'course'], ['object_id', $courseId]])->whereIn('status', ['INIT', 'VISIT'])->first();
 
-        $order->user_id = $userId;
-        $order->order_id = $request->order_id;
+        if (empty($order))
+        {
+            $order = new Order();
+
+            $order->user_id = $userId;
+            $order->order_id = time();
+            $order->type = 'course';
+            $order->object_id = $courseId;
+        }
+
         $order->days = $request->access_days;
         $order->access = $request->access;
         $order->status = 'APPROVED';
         $order->price = $request->price;
-        $order->course_id = $courseId;
         $order->packet = $packetName;
 
         $order->save();
@@ -560,6 +593,139 @@ class TinkoffController extends Controller
         return !Carbon::parse($access->deadline)->addDays(1)->isPast();        
     }
 
+    public function OrdersStatistic(Request $request)
+    {
+        $orders = Order::get();
+        $result = [];
+
+        $statusMap = [
+            'INIT' => 'Создан',
+            'NEW' => 'Создан',
+            'FORM_SHOWED' => 'Платежная форма открыта покупателем',
+            'DEADLINE_EXPIRED' => 'Платежная сессия закрыта в связи с превышением срока отсутствия активности по текущему статусу',
+            'CANCELED' => 'Отменен',
+            'PREAUTHORIZING' => 'Проверка платежных данных',
+            'AUTHORIZING' => 'Резервируется',
+            'AUTH_FAIL' => 'Не прошел авторизацию',
+            'REJECTED' => 'Отклонен',
+            '3DS_CHECKING' => 'Проверяется по протоколу 3-D Secure',
+            '3DS_CHECKED' => 'Проверен по протоколу 3-D Secure',
+            'PAY_CHECKING' => 'Платеж обрабатывается',
+            'AUTHORIZED' => 'Зарезервирован',
+            'REVERSING' => 'Резервирование отменяется',
+            'PARTIAL_REVERSED' => 'Резервирование отменено частично',
+            'REVERSED' => 'Резервирование отменено',
+            'CONFIRMING' => 'Подтверждается',
+            'CONFIRM_CHECKING' => 'Платеж обрабатывается',
+            'CONFIRMED' => 'Оплачен',
+            'REFUNDING' => 'Возвращается',
+            'PARTIAL_REFUNDED' => 'Возвращен частично',
+            'REFUNDED' => 'Возвращен полностью',
+            'APPROVED' => 'Заявка на кредит рассмотрена',
+            'SUCCESS' => 'Кредит оформлен',
+            'VISIT' => 'Посещение страницы'
+        ];
+
+        foreach ($orders as $order)
+        {
+            $type = $order->type == 'course' ? 'Курс' : 'Вебинар';
+            $name = '-';
+
+            if ($order->type == 'course')
+            {
+                $course = Course::where('id', $order->object_id)->first();
+
+                if (!empty($course))
+                {
+                    $name = $course->name;
+                }
+            }
+
+            if ($order->type == 'webinar')
+            {
+                $webinar = Webinar::where('id', $order->object_id)->first();
+
+                if (!empty($webinar))
+                {
+                    $name = $webinar->name;
+                }
+            }
+
+            $user = User::where('id', $order->user_id)->first();
+
+            if (empty($user))
+            {
+                $user = [
+                    'id' => 0,
+                    'name' => 'Пользователь удален',
+                    'email' => '-',
+                ];
+            }
+            else 
+            {
+                $user = [
+                    'id' => $user->id,
+                    'name' => $user->name.' '.$user->last_name,
+                    'email' => $user->email,
+                ];
+            }
+
+            $result[] = [
+                'user' => $user,
+                'status' => $statusMap[$order->status],
+                'price' => $order->price,
+                'packet' => $order->packet,
+                'date' => Carbon::parse($order->created_at)->translatedFormat('d.m.Y H:i'),
+                'name' => $name,
+                'type' => $type,
+            ];
+        }
+
+        $sortDir = $request->filter['sortDir'];
+
+        if (!empty($sortDir))
+        {
+            usort($result, function($a, $b) use ($sortDir){
+
+                if ($sortDir == 'asc')
+                {
+                    return Carbon::parse($a['date'])->timestamp >= Carbon::parse($b['date'])->timestamp;
+                }
+
+                if ($sortDir == 'desc')
+                {
+                    return Carbon::parse($a['date'])->timestamp <= Carbon::parse($b['date'])->timestamp;
+                }
+            });
+        }
+
+        return $result;
+    }
+
+    public function OrderInit(Request $request, $type, $objectId)
+    {
+        $order = Order::where([['user_id', Auth::user()->id], ['type', $type], ['object_id', $objectId]])->whereIn('status', ['INIT', 'VISIT'])->first();
+
+        if (empty($order))
+        {
+            $order = new Order();
+
+            $order->user_id = Auth::user()->id;
+            $order->order_id = time();
+            $order->type = $type;
+            $order->object_id = $objectId;
+        }
+
+        
+        $order->days = 0;
+        $order->access = empty($request->access) ? 0 : $request->access;
+        $order->status = 'VISIT';
+        $order->price = 0;
+        $order->packet = '-';
+
+        $order->save();
+    }
+
 
     private function ChechIntive($order)
     {
@@ -568,8 +734,8 @@ class TinkoffController extends Controller
         if ($user->invite_user != 0)
         {
             $inviteUser = User::where('id', $user->invite_user)->first();
-            $inviteUser->active_points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
-            $inviteUser->points += $order->price * Setting::where('key', 'invite_percent')->first() / 100;
+            $inviteUser->active_points += $order->price * Setting::where('key', 'invite_percent')->first()->value / 100;
+            $inviteUser->points += $order->price * Setting::where('key', 'invite_percent')->first()->value / 100;
         }
     }
 
